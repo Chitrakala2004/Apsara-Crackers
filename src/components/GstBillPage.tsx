@@ -710,7 +710,12 @@ export const GstBillPage: FC = () => {
             }}
           >
             <Button
-              onClick={() => setActiveSubTab('create')}
+              onClick={() => {
+                if (activeSubTab === 'history') {
+                  handleResetForm();
+                }
+                setActiveSubTab('create');
+              }}
               variant={activeSubTab === 'create' ? 'contained' : 'text'}
               sx={{
                 backgroundColor: activeSubTab === 'create' ? '#0F172A' : 'transparent',
@@ -969,6 +974,7 @@ export const GstBillPage: FC = () => {
                         options={customerOptions}
                         getOptionLabel={(option: any) => (typeof option === 'string' ? option : option.name || '')}
                         value={customerName}
+                        inputValue={customerName}
                         onInputChange={(_, newInputValue, reason) => {
                           setCustomerName(newInputValue);
                           if (reason === 'clear') {
@@ -1104,6 +1110,7 @@ export const GstBillPage: FC = () => {
                     options={productOptions}
                     getOptionLabel={(opt: any) => (typeof opt === 'string' ? opt : opt.name || '')}
                     value={selectedProduct}
+                    inputValue={selectedProduct}
                     onInputChange={(_, newVal) => setSelectedProduct(newVal)}
                     onChange={handleProductChange}
                     renderInput={(params) => (
