@@ -13,6 +13,7 @@
     "build:server": "npm --prefix server run build",
     "build:all": "npm run build && npm run build:server",
     "seed": "npm --prefix server run seed",
+    "init:db": "npm --prefix server run init:db",
     "lint": "oxlint",
     "preview": "vite preview"
   },

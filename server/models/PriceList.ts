@@ -81,4 +81,5 @@ const PriceListItemSchema: Schema = new Schema(
 
 PriceListItemSchema.index({ itemName: 1, category: 1 });
 
-export default mongoose.model<IPriceListItem>('PriceList', PriceListItemSchema);
+export const PriceList = mongoose.model<IPriceListItem>('PriceList', PriceListItemSchema);
+export default PriceList;

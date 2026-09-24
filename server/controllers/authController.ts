@@ -10,16 +10,18 @@ export const seedDefaultAdmin = async (): Promise<void> => {
   try {
     const adminCount = await Admin.countDocuments();
     if (adminCount === 0) {
+      const defaultUsername = (process.env.ADMIN_USERNAME || 'admin').trim().toLowerCase();
+      const defaultPassword = (process.env.ADMIN_PASSWORD || 'password123').trim();
       // Create initial default admin credentials
       await Admin.create({
-        username: 'admin',
-        password: hashPassword('admin123'),
+        username: defaultUsername,
+        password: hashPassword(defaultPassword),
         role: 'admin',
       });
       console.log('=============================================');
       console.log('[Auth] Default Admin created successfully:');
-      console.log('       Username: admin');
-      console.log('       Password: admin123');
+      console.log(`       Username: ${defaultUsername}`);
+      console.log(`       Password: ${defaultPassword}`);
       console.log('=============================================');
     }
   } catch (error) {

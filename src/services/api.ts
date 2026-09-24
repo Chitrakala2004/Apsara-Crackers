@@ -11,14 +11,22 @@ const getApiBaseUrl = (): string => {
     ''
   ).trim();
 
-  // Disallow any old remote server if specified accidentally
-  if (rawUrl && !rawUrl.includes('gemshine.tech')) {
+  // If explicit URL is provided in .env
+  if (rawUrl) {
+    if (rawUrl.startsWith('/')) {
+      return rawUrl.replace(/\/+$/, '');
+    }
     const sanitized = rawUrl.replace(/\/+$/, '');
     return sanitized.endsWith('/api') ? sanitized : `${sanitized}/api`;
   }
 
-  // Default to local backend server connected to new MongoDB database
-  return 'http://localhost:5011/api';
+  // If in browser on production domain (e.g. apsara-crackers.gemshine.tech)
+  if (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+    return '/api';
+  }
+
+  // Default to local backend server on Port 5015
+  return 'http://localhost:5015/api';
 };
 
 export const API_BASE_URL = getApiBaseUrl();

@@ -22,7 +22,7 @@ import settingsRoutes from './routes/settingsRoutes';
 import { seedDefaultAdmin } from './controllers/authController';
 
 const app: Application = express();
-const PORT = process.env.PORT || 5011;
+const PORT = process.env.PORT || 5015;
 
 // Connect Database & Seed default admin
 connectDB().then(() => {
@@ -43,10 +43,12 @@ const allowedOrigins = [
   'http://127.0.0.1:5173',
   'http://localhost:5174',
   'http://127.0.0.1:5174',
-  'http://localhost:5011',
-  'http://127.0.0.1:5011',
+  'http://localhost:5015',
+  'http://127.0.0.1:5015',
   'http://localhost:3000',
   'http://127.0.0.1:3000',
+  'https://apsara-crackers.gemshine.tech',
+  'http://apsara-crackers.gemshine.tech',
 ];
 
 const corsOptions: cors.CorsOptions = {
