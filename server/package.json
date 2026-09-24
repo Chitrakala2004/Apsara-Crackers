@@ -9,6 +9,8 @@
     "start": "node dist/index.js",
     "init:db": "node dist/initVpsDb.js",
     "init:db:ts": "ts-node-dev --transpile-only initVpsDb.ts",
+    "clean:stocks": "node dist/removeStockFields.js",
+    "clean:stocks:ts": "ts-node-dev --transpile-only removeStockFields.ts",
     "seed": "ts-node-dev --transpile-only seedData.ts"
   },
   "keywords": [

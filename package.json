@@ -14,6 +14,7 @@
     "build:all": "npm run build && npm run build:server",
     "seed": "npm --prefix server run seed",
     "init:db": "npm --prefix server run init:db",
+    "clean:stocks": "npm --prefix server run clean:stocks",
     "lint": "oxlint",
     "preview": "vite preview"
   },

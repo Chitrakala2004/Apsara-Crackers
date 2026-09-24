@@ -68,9 +68,6 @@ export interface PriceItem {
   mrp: number;
   discountPercent?: number;
   rate: number;
-  shopStock?: number;
-  godownStock?: number;
-  stock?: number;
   effectiveDate?: string;
   batchName?: string;
 }
@@ -158,7 +155,6 @@ export const PriceListPage: FC = () => {
   const [formMrp, setFormMrp] = useState<string>('0');
   const [formDiscount, setFormDiscount] = useState<string>('0');
   const [formRate, setFormRate] = useState<string>('0');
-  const [formStock, setFormStock] = useState<string>('0');
   const [savingItem, setSavingItem] = useState(false);
 
   // Save docs list to localStorage
@@ -194,31 +190,9 @@ export const PriceListPage: FC = () => {
 
       let mergedItems: PriceItem[] = [];
       if (Array.isArray(priceData)) {
-        mergedItems = priceData.map((item: any) => {
-          const key = (item.itemName || '').toLowerCase().trim();
-          const p = prodMap.get(key);
-
-          const plShop = Number(item.shopStock ?? item.shop_stock ?? item.shop ?? 0) || 0;
-          const plGodown = Number(item.godownStock ?? item.godown_stock ?? item.godown ?? 0) || 0;
-          const plTotal = Number(item.stock ?? item.quantity ?? item.qty ?? 0) || 0;
-
-          const pShop = Number(p?.shopStock ?? p?.shop_stock ?? p?.shop ?? 0) || 0;
-          const pGodown = Number(p?.godownStock ?? p?.godown_stock ?? p?.godown ?? 0) || 0;
-          const pTotal = Number(p?.stock ?? p?.quantity ?? p?.qty ?? 0) || 0;
-
-          const shopStock = plShop > 0 ? plShop : pShop;
-          const godownStock = plGodown > 0 ? plGodown : pGodown;
-          const totalStock = (shopStock + godownStock > 0)
-            ? (shopStock + godownStock)
-            : (plTotal > 0 ? plTotal : (pTotal > 0 ? pTotal : 0));
-
-          return {
-            ...item,
-            shopStock,
-            godownStock,
-            stock: totalStock,
-          };
-        });
+        mergedItems = priceData.map((item: any) => ({
+          ...item,
+        }));
       }
 
       setItems(mergedItems);
@@ -454,7 +428,6 @@ export const PriceListPage: FC = () => {
           mrp: mrp || rate,
           discountPercent: mrp > rate ? Math.round(((mrp - rate) / mrp) * 100) : 0,
           rate,
-          stock: 100,
         });
         nextSlNo++;
       }
@@ -656,9 +629,6 @@ export const PriceListPage: FC = () => {
       let mrpCol = -1;
       let rateCol = -1;
       let discCol = -1;
-      let shopStockCol = -1;
-      let godownStockCol = -1;
-      let stockCol = -1;
 
       for (let r = 0; r < rawRows.length; r++) {
         const row = rawRows[r];
@@ -684,9 +654,6 @@ export const PriceListPage: FC = () => {
             else if (c.includes('mrp') || c.includes('m.r.p') || c.includes('gross') || c.includes('box rate')) mrpCol = idx;
             else if (c.includes('disc') || c.includes('%')) discCol = idx;
             else if (c.includes('net') || c.includes('rate') || c.includes('price') || c.includes('selling') || c.includes('final')) rateCol = idx;
-            else if (c.includes('shop') || c.includes('counter') || c.includes('store')) shopStockCol = idx;
-            else if (c.includes('godown') || c.includes('warehouse') || c.includes('go-down')) godownStockCol = idx;
-            else if (c.includes('stock') || c.includes('qty') || c.includes('quantity')) stockCol = idx;
           });
           continue;
         }
@@ -705,9 +672,6 @@ export const PriceListPage: FC = () => {
         let itemMrp = 0;
         let itemRate = 0;
         let itemDisc = 0;
-        let itemShopStock = 0;
-        let itemGodownStock = 0;
-        let itemStock = 0;
         let itemSlNo = globalSlNo;
 
         // Choose best column: prefer explicit English column, or column with English characters
@@ -740,13 +704,6 @@ export const PriceListPage: FC = () => {
           if (mrpCol !== -1 && row[mrpCol]) itemMrp = Number(String(row[mrpCol]).replace(/[^\d.]/g, '')) || 0;
           if (rateCol !== -1 && row[rateCol]) itemRate = Number(String(row[rateCol]).replace(/[^\d.]/g, '')) || 0;
           if (discCol !== -1 && row[discCol]) itemDisc = Number(String(row[discCol]).replace(/[^\d.]/g, '')) || 0;
-          if (shopStockCol !== -1 && row[shopStockCol]) itemShopStock = Number(String(row[shopStockCol]).replace(/[^\d.]/g, '')) || 0;
-          if (godownStockCol !== -1 && row[godownStockCol]) itemGodownStock = Number(String(row[godownStockCol]).replace(/[^\d.]/g, '')) || 0;
-          if (stockCol !== -1 && row[stockCol]) itemStock = Number(String(row[stockCol]).replace(/[^\d.]/g, '')) || 0;
-
-          if (itemStock === 0 && (itemShopStock > 0 || itemGodownStock > 0)) {
-            itemStock = itemShopStock + itemGodownStock;
-          }
         } else {
           // Freeform cells analysis: inspect text cells and prefer English characters
           const nonEmpty = row.map((c, i) => ({ val: String(c).trim(), idx: i })).filter((x) => x.val.length > 0);
@@ -794,9 +751,6 @@ export const PriceListPage: FC = () => {
             mrp: itemMrp || itemRate,
             discountPercent: itemDisc || (itemMrp > itemRate ? Math.round(((itemMrp - itemRate) / itemMrp) * 100) : 0),
             rate: itemRate,
-            shopStock: itemShopStock,
-            godownStock: itemGodownStock,
-            stock: itemStock || (itemShopStock + itemGodownStock) || 0,
           });
           globalSlNo++;
         }
@@ -1239,7 +1193,6 @@ export const PriceListPage: FC = () => {
       MRP: item.mrp,
       'Discount %': item.discountPercent || 0,
       'Net Rate': item.rate,
-      Stock: item.stock || 0,
       'Last Updated': item.effectiveDate || '',
     }));
 
@@ -1342,7 +1295,6 @@ export const PriceListPage: FC = () => {
     setFormMrp('0');
     setFormDiscount('0');
     setFormRate('0');
-    setFormStock('0');
     setItemModalOpen(true);
   };
 
@@ -1356,7 +1308,6 @@ export const PriceListPage: FC = () => {
     setFormMrp(String(item.mrp || 0));
     setFormDiscount(String(item.discountPercent || 0));
     setFormRate(String(item.rate || 0));
-    setFormStock(String(item.stock || 0));
     setItemModalOpen(true);
   };
 
@@ -1382,7 +1333,6 @@ export const PriceListPage: FC = () => {
         mrp: Number(formMrp) || 0,
         discountPercent: Number(formDiscount) || 0,
         rate: rateNum,
-        stock: Number(formStock) || 0,
       };
 
       if (editingItem) {

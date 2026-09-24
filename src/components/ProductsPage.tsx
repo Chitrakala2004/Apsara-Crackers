@@ -47,9 +47,6 @@ export interface ProductItem {
   rate?: number;
   mrp?: number;
   unit?: string;
-  shopStock?: number;
-  godownStock?: number;
-  stock?: number;
 }
 
 export const ProductsPage: FC = () => {
@@ -67,8 +64,6 @@ export const ProductsPage: FC = () => {
   const [productUnit, setProductUnit] = useState('Box');
   const [productRate, setProductRate] = useState<string>('0');
   const [productMrp, setProductMrp] = useState<string>('0');
-  const [productShopStock, setProductShopStock] = useState<string>('0');
-  const [productGodownStock, setProductGodownStock] = useState<string>('0');
   const [modalLoading, setModalLoading] = useState(false);
 
   const fetchProductsAndPrices = async () => {
@@ -99,20 +94,6 @@ export const ProductsPage: FC = () => {
           seenNames.add(key);
           const priceItem = priceMap.get(key);
 
-          const pShop = Number(p.shopStock ?? p.shop_stock ?? p.shop ?? p.counterStock ?? 0) || 0;
-          const pGodown = Number(p.godownStock ?? p.godown_stock ?? p.godown ?? p.warehouse ?? 0) || 0;
-          const pTotal = Number(p.stock ?? p.quantity ?? p.qty ?? 0) || 0;
-
-          const plShop = Number(priceItem?.shopStock ?? priceItem?.shop_stock ?? priceItem?.shop ?? 0) || 0;
-          const plGodown = Number(priceItem?.godownStock ?? priceItem?.godown_stock ?? priceItem?.godown ?? 0) || 0;
-          const plTotal = Number(priceItem?.stock ?? priceItem?.quantity ?? priceItem?.qty ?? 0) || 0;
-
-          const shopStock = pShop > 0 ? pShop : plShop;
-          const godownStock = pGodown > 0 ? pGodown : plGodown;
-          const totalStock = (shopStock + godownStock > 0)
-            ? (shopStock + godownStock)
-            : (pTotal > 0 ? pTotal : (plTotal > 0 ? plTotal : 0));
-
           mergedProducts.push({
             _id: p._id || p.id,
             id: p._id || p.id,
@@ -122,9 +103,6 @@ export const ProductsPage: FC = () => {
             rate: priceItem?.rate !== undefined && priceItem.rate > 0 ? priceItem.rate : (p.rate || 0),
             mrp: priceItem?.mrp !== undefined && priceItem.mrp > 0 ? priceItem.mrp : (p.mrp || 0),
             unit: priceItem?.unit || p.unit || 'Box',
-            shopStock,
-            godownStock,
-            stock: totalStock,
           });
         });
       }
@@ -137,9 +115,6 @@ export const ProductsPage: FC = () => {
           if (key && !seenNames.has(key)) {
             maxSlNo += 1;
             seenNames.add(key);
-            const shopStock = Number(pItem.shopStock ?? pItem.shop_stock ?? pItem.shop ?? 0) || 0;
-            const godownStock = Number(pItem.godownStock ?? pItem.godown_stock ?? pItem.godown ?? 0) || 0;
-            const totalStock = Number(pItem.stock ?? pItem.quantity ?? pItem.qty ?? 0) || (shopStock + godownStock);
 
             mergedProducts.push({
               _id: pItem._id || pItem.id,
@@ -150,9 +125,6 @@ export const ProductsPage: FC = () => {
               rate: pItem.rate || 0,
               mrp: pItem.mrp || 0,
               unit: pItem.unit || 'Box',
-              shopStock,
-              godownStock,
-              stock: totalStock,
             });
           }
         });
@@ -194,8 +166,6 @@ export const ProductsPage: FC = () => {
     setProductUnit('Box');
     setProductRate('0');
     setProductMrp('0');
-    setProductShopStock('0');
-    setProductGodownStock('0');
     setOpenModal(true);
   };
 
@@ -206,8 +176,6 @@ export const ProductsPage: FC = () => {
     setProductUnit(product.unit || 'Box');
     setProductRate(String(product.rate || 0));
     setProductMrp(String(product.mrp || 0));
-    setProductShopStock(String(product.shopStock || 0));
-    setProductGodownStock(String(product.godownStock || 0));
     setOpenModal(true);
   };
 
@@ -219,9 +187,6 @@ export const ProductsPage: FC = () => {
 
     try {
       setModalLoading(true);
-      const shopStockVal = Number(productShopStock) || 0;
-      const godownStockVal = Number(productGodownStock) || 0;
-      const totalStockVal = shopStockVal + godownStockVal;
 
       const payload = {
         name: productName.trim(),
@@ -229,9 +194,6 @@ export const ProductsPage: FC = () => {
         unit: productUnit,
         rate: Number(productRate) || 0,
         mrp: Number(productMrp) || 0,
-        shopStock: shopStockVal,
-        godownStock: godownStockVal,
-        stock: totalStockVal,
       };
 
       if (editingProduct) {
@@ -749,54 +711,7 @@ export const ProductsPage: FC = () => {
                 >
                   RATE / PRICE (₹)
                 </TableCell>
-                <TableCell
-                  align="center"
-                  sx={{
-                    py: 1.5,
-                    px: 1.5,
-                    fontSize: '12px',
-                    fontWeight: 800,
-                    color: '#1E40AF',
-                    letterSpacing: '0.04em',
-                    backgroundColor: '#EFF6FF',
-                    borderBottom: '2px solid #BFDBFE',
-                    width: '110px',
-                  }}
-                >
-                  SHOP STOCK
-                </TableCell>
-                <TableCell
-                  align="center"
-                  sx={{
-                    py: 1.5,
-                    px: 1.5,
-                    fontSize: '12px',
-                    fontWeight: 800,
-                    color: '#065F46',
-                    letterSpacing: '0.04em',
-                    backgroundColor: '#ECFDF5',
-                    borderBottom: '2px solid #A7F3D0',
-                    width: '110px',
-                  }}
-                >
-                  GODOWN STOCK
-                </TableCell>
-                <TableCell
-                  align="center"
-                  sx={{
-                    py: 1.5,
-                    px: 1.5,
-                    fontSize: '12px',
-                    fontWeight: 800,
-                    color: '#1E293B',
-                    letterSpacing: '0.04em',
-                    backgroundColor: '#F8FAFC',
-                    borderBottom: '2px solid #E2E8F0',
-                    width: '100px',
-                  }}
-                >
-                  TOTAL STOCK
-                </TableCell>
+
                 <TableCell
                   align="center"
                   sx={{
@@ -864,9 +779,6 @@ export const ProductsPage: FC = () => {
                   const prodId = product._id || product.id || String(index);
                   const isSelected = selectedIds.includes(prodId);
                   const isLast = index === filteredProducts.length - 1;
-                  const shopStockVal = product.shopStock || 0;
-                  const godownStockVal = product.godownStock || 0;
-                  const totalStockVal = product.stock !== undefined ? product.stock : (shopStockVal + godownStockVal);
 
                   return (
                     <TableRow
@@ -985,77 +897,7 @@ export const ProductsPage: FC = () => {
                         ₹{Number(product.rate || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </TableCell>
 
-                      {/* Shop Stock Cell */}
-                      <TableCell
-                        align="center"
-                        sx={{
-                          py: 1.4,
-                          px: 1.5,
-                          borderBottom: isLast ? 'none' : '1px solid #F1F5F9',
-                        }}
-                      >
-                        <Chip
-                          label={shopStockVal}
-                          size="small"
-                          sx={{
-                            fontWeight: 800,
-                            fontSize: '12px',
-                            backgroundColor: shopStockVal > 0 ? '#EFF6FF' : '#F3F4F6',
-                            color: shopStockVal > 0 ? '#1D4ED8' : '#9CA3AF',
-                            border: `1px solid ${shopStockVal > 0 ? '#BFDBFE' : '#E5E7EB'}`,
-                            borderRadius: '6px',
-                            minWidth: '42px',
-                          }}
-                        />
-                      </TableCell>
 
-                      {/* Godown Stock Cell */}
-                      <TableCell
-                        align="center"
-                        sx={{
-                          py: 1.4,
-                          px: 1.5,
-                          borderBottom: isLast ? 'none' : '1px solid #F1F5F9',
-                        }}
-                      >
-                        <Chip
-                          label={godownStockVal}
-                          size="small"
-                          sx={{
-                            fontWeight: 800,
-                            fontSize: '12px',
-                            backgroundColor: godownStockVal > 0 ? '#ECFDF5' : '#F3F4F6',
-                            color: godownStockVal > 0 ? '#047857' : '#9CA3AF',
-                            border: `1px solid ${godownStockVal > 0 ? '#A7F3D0' : '#E5E7EB'}`,
-                            borderRadius: '6px',
-                            minWidth: '42px',
-                          }}
-                        />
-                      </TableCell>
-
-                      {/* Total Stock Cell */}
-                      <TableCell
-                        align="center"
-                        sx={{
-                          py: 1.4,
-                          px: 1.5,
-                          borderBottom: isLast ? 'none' : '1px solid #F1F5F9',
-                        }}
-                      >
-                        <Chip
-                          label={totalStockVal}
-                          size="small"
-                          sx={{
-                            fontWeight: 800,
-                            fontSize: '12px',
-                            backgroundColor: totalStockVal > 0 ? '#F1F5F9' : '#FEE2E2',
-                            color: totalStockVal > 0 ? '#B45309' : '#DC2626',
-                            border: `1px solid ${totalStockVal > 0 ? '#E2E8F0' : '#FECACA'}`,
-                            borderRadius: '6px',
-                            minWidth: '46px',
-                          }}
-                        />
-                      </TableCell>
 
                       {/* Edit Button */}
                       <TableCell
@@ -1290,37 +1132,7 @@ export const ProductsPage: FC = () => {
             </Grid>
           </Grid>
 
-          <Grid container spacing={2}>
-            <Grid size={{ xs: 12, sm: 6 }}>
-              <Typography sx={{ fontSize: '13px', fontWeight: 700, color: '#1E40AF', mb: 0.6 }}>
-                🏪 Shop Stock (Counter)
-              </Typography>
-              <TextField
-                fullWidth
-                size="small"
-                type="number"
-                placeholder="0"
-                value={productShopStock}
-                onChange={(e) => setProductShopStock(e.target.value)}
-                slotProps={{ input: { sx: { fontSize: '13.5px', fontWeight: 700, color: '#1E40AF' } } }}
-              />
-            </Grid>
 
-            <Grid size={{ xs: 12, sm: 6 }}>
-              <Typography sx={{ fontSize: '13px', fontWeight: 700, color: '#065F46', mb: 0.6 }}>
-                🏢 Godown Stock (Warehouse)
-              </Typography>
-              <TextField
-                fullWidth
-                size="small"
-                type="number"
-                placeholder="0"
-                value={productGodownStock}
-                onChange={(e) => setProductGodownStock(e.target.value)}
-                slotProps={{ input: { sx: { fontSize: '13.5px', fontWeight: 700, color: '#065F46' } } }}
-              />
-            </Grid>
-          </Grid>
         </DialogContent>
         <DialogActions sx={{ p: 2, pt: 1 }}>
           <Button
