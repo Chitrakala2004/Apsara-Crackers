@@ -3,7 +3,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import path from 'path';
 
-// Load environment variables from server directory and root directory
+// Load environment variables (.env)
 dotenv.config({ path: path.join(__dirname, '.env') });
 dotenv.config();
 

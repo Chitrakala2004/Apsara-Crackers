@@ -251,9 +251,12 @@ export const GstBillPage: FC = () => {
     setOverallDiscount('0');
     setOverallGstRate('18');
     setSelectedProduct('');
-    setRate('0');
+    setHsnCode('3604');
     setQuantity('1');
+    setUnit('Box');
+    setRate('0');
     setProductRows([]);
+    setBillDate(getTodayDateString());
     fetchNextGstBillNo();
   };
 
@@ -315,12 +318,36 @@ export const GstBillPage: FC = () => {
   // Auto-sync customer details on selection
   const handleCustomerChange = (_: any, value: any) => {
     if (typeof value === 'string') {
+      const trimmed = value.trim();
       setCustomerName(value);
+      const matched = customerOptions.find(
+        (c) => c.name.toLowerCase() === trimmed.toLowerCase()
+      );
+      if (matched) {
+        setCustomerPhone(matched.mobile || '');
+        setCustomerAddress(matched.address || '');
+        setCustomerAadhar(matched.aadhar || '');
+        if (matched.gst) {
+          setCustomerGst(matched.gst);
+          const stateCode = matched.gst.slice(0, 2);
+          const matchedState = INDIAN_STATES.find((s) => s.code === stateCode);
+          if (matchedState) {
+            setPlaceOfSupply(`${matchedState.name} (${matchedState.code})`);
+          }
+        } else {
+          setCustomerGst('');
+        }
+      } else {
+        setCustomerPhone('');
+        setCustomerAddress('');
+        setCustomerGst('');
+        setCustomerAadhar('');
+      }
     } else if (value && value.name) {
       setCustomerName(value.name);
-      if (value.mobile) setCustomerPhone(value.mobile);
-      if (value.address) setCustomerAddress(value.address);
-      if (value.aadhar) setCustomerAadhar(value.aadhar);
+      setCustomerPhone(value.mobile || '');
+      setCustomerAddress(value.address || '');
+      setCustomerAadhar(value.aadhar || '');
       if (value.gst) {
         setCustomerGst(value.gst);
         const stateCode = value.gst.slice(0, 2);
@@ -328,9 +355,16 @@ export const GstBillPage: FC = () => {
         if (matchedState) {
           setPlaceOfSupply(`${matchedState.name} (${matchedState.code})`);
         }
+      } else {
+        setCustomerGst('');
       }
     } else {
       setCustomerName('');
+      setCustomerPhone('');
+      setCustomerAddress('');
+      setCustomerGst('');
+      setCustomerAadhar('');
+      setPlaceOfSupply('Tamil Nadu (33)');
     }
   };
 
@@ -482,13 +516,13 @@ export const GstBillPage: FC = () => {
 
       alert(`GST Invoice #${billData.billNo} saved successfully!`);
 
+      // Reset form immediately for fresh new bill entry (zero old customer data / products)
+      handleResetForm();
+
       if (andPrint) {
         setSelectedBillForPrint(billData);
         setPrintModalOpen(true);
       }
-
-      // Refresh bill no for next entry
-      fetchNextGstBillNo();
     } catch (e) {
       console.error('Error saving GST Bill:', e);
       alert('Failed to save GST Bill. Please try again.');
@@ -633,56 +667,88 @@ export const GstBillPage: FC = () => {
           </Box>
         </Box>
 
-        {/* View Switcher Tabs */}
+        {/* Top Header Card Action Buttons */}
         <Box
           sx={{
             display: 'flex',
             alignItems: 'center',
-            backgroundColor: '#F1F5F9',
-            p: 0.5,
-            borderRadius: '10px',
-            border: '1px solid #E2E8F0',
+            gap: 1.5,
+            flexWrap: 'wrap',
           }}
         >
           <Button
-            onClick={() => setActiveSubTab('create')}
-            variant={activeSubTab === 'create' ? 'contained' : 'text'}
-            sx={{
-              backgroundColor: activeSubTab === 'create' ? '#DC2626' : 'transparent',
-              color: activeSubTab === 'create' ? '#FFFFFF' : '#475569',
-              fontWeight: 700,
-              fontSize: '13px',
-              borderRadius: '8px',
-              px: 2,
-              py: 0.8,
-              '&:hover': {
-                backgroundColor: activeSubTab === 'create' ? '#B91C1C' : '#E2E8F0',
-              },
-            }}
-          >
-            Create GST Invoice
-          </Button>
-          <Button
+            variant="contained"
+            startIcon={<AddRoundedIcon />}
             onClick={() => {
-              setActiveSubTab('history');
-              fetchGstHistory();
+              handleResetForm();
+              setActiveSubTab('create');
             }}
-            variant={activeSubTab === 'history' ? 'contained' : 'text'}
             sx={{
-              backgroundColor: activeSubTab === 'history' ? '#DC2626' : 'transparent',
-              color: activeSubTab === 'history' ? '#FFFFFF' : '#475569',
-              fontWeight: 700,
+              backgroundColor: '#DC2626',
+              color: '#FFFFFF',
+              fontWeight: 800,
               fontSize: '13px',
               borderRadius: '8px',
-              px: 2,
-              py: 0.8,
-              '&:hover': {
-                backgroundColor: activeSubTab === 'history' ? '#B91C1C' : '#E2E8F0',
-              },
+              px: 2.2,
+              py: 0.9,
+              boxShadow: '0 2px 6px rgba(220, 38, 38, 0.3)',
+              '&:hover': { backgroundColor: '#B91C1C' },
             }}
           >
-            GST Invoices History ({historyList.length})
+            + New Bill
           </Button>
+
+          {/* View Switcher Tabs */}
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              backgroundColor: '#F1F5F9',
+              p: 0.5,
+              borderRadius: '10px',
+              border: '1px solid #E2E8F0',
+            }}
+          >
+            <Button
+              onClick={() => setActiveSubTab('create')}
+              variant={activeSubTab === 'create' ? 'contained' : 'text'}
+              sx={{
+                backgroundColor: activeSubTab === 'create' ? '#0F172A' : 'transparent',
+                color: activeSubTab === 'create' ? '#FFFFFF' : '#475569',
+                fontWeight: 700,
+                fontSize: '13px',
+                borderRadius: '8px',
+                px: 2,
+                py: 0.8,
+                '&:hover': {
+                  backgroundColor: activeSubTab === 'create' ? '#1E293B' : '#E2E8F0',
+                },
+              }}
+            >
+              Create GST Invoice
+            </Button>
+            <Button
+              onClick={() => {
+                setActiveSubTab('history');
+                fetchGstHistory();
+              }}
+              variant={activeSubTab === 'history' ? 'contained' : 'text'}
+              sx={{
+                backgroundColor: activeSubTab === 'history' ? '#0F172A' : 'transparent',
+                color: activeSubTab === 'history' ? '#FFFFFF' : '#475569',
+                fontWeight: 700,
+                fontSize: '13px',
+                borderRadius: '8px',
+                px: 2,
+                py: 0.8,
+                '&:hover': {
+                  backgroundColor: activeSubTab === 'history' ? '#1E293B' : '#E2E8F0',
+                },
+              }}
+            >
+              GST Invoices History ({historyList.length})
+            </Button>
+          </Box>
         </Box>
       </Paper>
 
@@ -789,18 +855,21 @@ export const GstBillPage: FC = () => {
                 </Typography>
                 <Button
                   size="small"
-                  variant="outlined"
+                  variant="contained"
+                  startIcon={<AddRoundedIcon sx={{ fontSize: 16 }} />}
                   onClick={handleResetForm}
                   sx={{
                     fontSize: '12px',
                     fontWeight: 700,
                     textTransform: 'none',
-                    color: '#DC2626',
-                    borderColor: '#FECACA',
-                    '&:hover': { backgroundColor: '#FEF2F2', borderColor: '#DC2626' },
+                    backgroundColor: '#DC2626',
+                    color: '#FFFFFF',
+                    borderRadius: '7px',
+                    px: 1.8,
+                    '&:hover': { backgroundColor: '#B91C1C' },
                   }}
                 >
-                  + New Invoice
+                  + New Bill
                 </Button>
               </Box>
 
@@ -900,7 +969,15 @@ export const GstBillPage: FC = () => {
                         options={customerOptions}
                         getOptionLabel={(option: any) => (typeof option === 'string' ? option : option.name || '')}
                         value={customerName}
-                        onInputChange={(_, newInputValue) => setCustomerName(newInputValue)}
+                        onInputChange={(_, newInputValue, reason) => {
+                          setCustomerName(newInputValue);
+                          if (reason === 'clear') {
+                            setCustomerPhone('');
+                            setCustomerAddress('');
+                            setCustomerGst('');
+                            setCustomerAadhar('');
+                          }
+                        }}
                         onChange={handleCustomerChange}
                         renderInput={(params) => (
                           <TextField {...params} size="small" placeholder="Type or select customer" />
@@ -996,9 +1073,28 @@ export const GstBillPage: FC = () => {
                 boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
               }}
             >
-              <Typography sx={{ fontSize: '15px', fontWeight: 800, color: '#0F172A', mb: 3 }}>
-                Add Goods & Product Items
-              </Typography>
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
+                <Typography sx={{ fontSize: '15px', fontWeight: 800, color: '#0F172A' }}>
+                  Add Goods & Product Items
+                </Typography>
+                {productRows.length > 0 && (
+                  <Button
+                    size="small"
+                    variant="text"
+                    onClick={() => setProductRows([])}
+                    startIcon={<ClearRoundedIcon sx={{ fontSize: 16 }} />}
+                    sx={{
+                      fontSize: '12px',
+                      fontWeight: 700,
+                      textTransform: 'none',
+                      color: '#EF4444',
+                      '&:hover': { backgroundColor: '#FEF2F2' },
+                    }}
+                  >
+                    Clear All Products
+                  </Button>
+                )}
+              </Box>
 
               {/* Product Entry Row (No HSN input, No item-level GST input) */}
               <Grid container spacing={2} sx={{ alignItems: 'center', mb: 3 }}>
@@ -1257,12 +1353,18 @@ export const GstBillPage: FC = () => {
 
                 <Button
                   fullWidth
-                  variant="text"
+                  variant="outlined"
                   onClick={handleResetForm}
                   startIcon={<RotateLeftRoundedIcon />}
-                  sx={{ color: '#64748B', fontWeight: 600, py: 0.8 }}
+                  sx={{
+                    color: '#DC2626',
+                    borderColor: '#FECACA',
+                    fontWeight: 700,
+                    py: 0.9,
+                    '&:hover': { backgroundColor: '#FEF2F2', borderColor: '#DC2626' },
+                  }}
                 >
-                  Reset Invoice Form
+                  + New Bill / Reset Form
                 </Button>
               </Box>
             </Paper>
@@ -1333,7 +1435,10 @@ export const GstBillPage: FC = () => {
               </Button>
               <Button
                 variant="contained"
-                onClick={() => setActiveSubTab('create')}
+                onClick={() => {
+                  handleResetForm();
+                  setActiveSubTab('create');
+                }}
                 startIcon={<AddRoundedIcon />}
                 sx={{
                   backgroundColor: '#DC2626',
@@ -1342,7 +1447,7 @@ export const GstBillPage: FC = () => {
                   '&:hover': { backgroundColor: '#B91C1C' },
                 }}
               >
-                New GST Bill
+                + New Bill
               </Button>
             </Box>
           </Box>
