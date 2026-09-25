@@ -13,13 +13,29 @@ import { GstBillPage } from './components/GstBillPage';
 import { SettingsPage, getStoredSettings, DEFAULT_COMPANY_SETTINGS } from './components/SettingsPage';
 import { SettingsApi } from './services/api';
 
+const ACTIVE_TAB_KEY = 'apsara_active_tab';
+const CUSTOMER_SUBVIEW_KEY = 'apsara_customer_subview';
+
+const VALID_TABS = ['All Customers', 'Billing', 'GST Bill', 'Categories', 'Price List', 'Product', 'Settings'] as const;
+
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
     return Boolean(localStorage.getItem('apsara_auth_token'));
   });
-  const [activeTab, setActiveTab] = useState<NavTab>('All Customers');
-  const [customerSubView, setCustomerSubView] = useState<'list' | 'add'>('list');
+  const [activeTab, setActiveTab] = useState<NavTab>(() => {
+    const saved = localStorage.getItem(ACTIVE_TAB_KEY);
+    if (saved && VALID_TABS.includes(saved as NavTab)) {
+      return saved as NavTab;
+    }
+    return 'All Customers';
+  });
+  const [customerSubView, setCustomerSubView] = useState<'list' | 'add'>(() => {
+    const saved = localStorage.getItem(CUSTOMER_SUBVIEW_KEY);
+    // Never restore 'add' subview on refresh - go back to list on refresh for add page
+    return saved === 'list' ? 'list' : 'list';
+  });
   const [selectedCustomerName, setSelectedCustomerName] = useState<string>('');
+  const [editingBill, setEditingBill] = useState<any | null>(null);
 
   useEffect(() => {
     // Clear legacy sticky customer & stale cache if present
@@ -67,23 +83,44 @@ function App() {
   const handleLogout = () => {
     ['apsara_auth_token', 'apsara_auth_user', 'apsara_active_customer', 'apsara_draft_bill',
      'varun_auth_token', 'dheeksha_auth_token', 'varun_auth_user', 'dheeksha_auth_user',
-     'varun_active_customer', 'dheeksha_active_customer'].forEach(key => localStorage.removeItem(key));
+     'varun_active_customer', 'dheeksha_active_customer',
+     ACTIVE_TAB_KEY, CUSTOMER_SUBVIEW_KEY].forEach(key => localStorage.removeItem(key));
     setIsAuthenticated(false);
+    setActiveTab('All Customers');
+    setCustomerSubView('list');
   };
 
   const handleSelectTab = (tab: NavTab) => {
     setActiveTab(tab);
+    localStorage.setItem(ACTIVE_TAB_KEY, tab);
     if (tab === 'All Customers') {
       setCustomerSubView('list');
+      localStorage.setItem(CUSTOMER_SUBVIEW_KEY, 'list');
     }
     if (tab === 'Billing') {
       setSelectedCustomerName('');
+      setEditingBill(null);
     }
   };
 
   const handleCustomerSelectedForParticular = (customerName: string) => {
     setSelectedCustomerName(customerName);
+    setEditingBill(null);
     setActiveTab('Billing');
+    localStorage.setItem(ACTIVE_TAB_KEY, 'Billing');
+  };
+
+  const handleEditBill = (bill: any) => {
+    setEditingBill(bill);
+    setSelectedCustomerName('');
+    setActiveTab('Billing');
+    localStorage.setItem(ACTIVE_TAB_KEY, 'Billing');
+  };
+
+  const handleEditBillSuccess = () => {
+    setEditingBill(null);
+    setActiveTab('All Customers');
+    localStorage.setItem(ACTIVE_TAB_KEY, 'All Customers');
   };
 
   if (!isAuthenticated) {
@@ -126,6 +163,7 @@ function App() {
                 <AllCustomersPage
                   onAddNewCustomer={() => setCustomerSubView('add')}
                   onSelectCustomerForParticular={handleCustomerSelectedForParticular}
+                  onEditBill={handleEditBill}
                 />
               )}
             </>
@@ -135,6 +173,8 @@ function App() {
           {activeTab === 'Billing' && (
             <ParticularsPage
               initialCustomerName={selectedCustomerName}
+              editBillData={editingBill}
+              onEditSuccess={handleEditBillSuccess}
             />
           )}
 

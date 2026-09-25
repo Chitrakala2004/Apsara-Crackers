@@ -59,11 +59,13 @@ export interface CustomerItem {
 interface AllCustomersPageProps {
   onAddNewCustomer?: () => void;
   onSelectCustomerForParticular?: (customerName: string, subTab?: 'Account Details' | 'Create Particular') => void;
+  onEditBill?: (bill: any) => void;
 }
 
 export const AllCustomersPage: FC<AllCustomersPageProps> = ({
   onAddNewCustomer,
   onSelectCustomerForParticular,
+  onEditBill,
 }) => {
   const [storeSettings, setStoreSettings] = useState(() => getStoredSettings());
   const [searchTerm, setSearchTerm] = useState('');
@@ -1384,12 +1386,12 @@ export const AllCustomersPage: FC<AllCustomersPageProps> = ({
                           </TableCell>
                           <TableCell align="center" sx={{ borderBottom: isLast ? 'none' : '1px solid #F1F5F9' }}>
                             <Box sx={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
-                              {/* Edit Bill Button */}
+                              {/* Edit Bill Button — navigates to Billing page */}
                               <Tooltip title="Edit Bill & Items" arrow>
                                 <Button
                                   size="small"
                                   variant="outlined"
-                                  onClick={() => handleOpenEditBill(bill)}
+                                  onClick={() => onEditBill ? onEditBill(bill) : handleOpenEditBill(bill)}
                                   startIcon={<ModeEditOutlineRoundedIcon sx={{ fontSize: '15px !important' }} />}
                                   sx={{
                                     height: '30px',

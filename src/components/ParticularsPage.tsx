@@ -19,6 +19,7 @@ import {
   Divider,
 } from '@mui/material';
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
+import RemoveRoundedIcon from '@mui/icons-material/RemoveRounded';
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
 import PrintOutlinedIcon from '@mui/icons-material/PrintOutlined';
 import ClearRoundedIcon from '@mui/icons-material/ClearRounded';
@@ -63,6 +64,8 @@ interface ProductCatalogOption {
 
 interface ParticularsPageProps {
   initialCustomerName?: string;
+  editBillData?: any | null;
+  onEditSuccess?: () => void;
 }
 
 const DRAFT_BILL_STORAGE_KEY = 'apsara_draft_bill';
@@ -92,7 +95,7 @@ const getSavedDraft = (): DraftBillState => {
   return {};
 };
 
-export const ParticularsPage: FC<ParticularsPageProps> = ({ initialCustomerName }) => {
+export const ParticularsPage: FC<ParticularsPageProps> = ({ initialCustomerName, editBillData, onEditSuccess }) => {
   const [storeSettings, setStoreSettings] = useState(() => getStoredSettings());
   const draft = useMemo(() => getSavedDraft(), []);
 
@@ -128,6 +131,37 @@ export const ParticularsPage: FC<ParticularsPageProps> = ({ initialCustomerName 
   const [unit, setUnit] = useState<string>('Box');
   const [productRows, setProductRows] = useState<ProductRowItem[]>(() => draft.productRows || []);
   const [savingBill, setSavingBill] = useState<boolean>(false);
+
+  // Track whether we are in edit mode
+  const isEditMode = Boolean(editBillData && (editBillData._id || editBillData.id));
+
+  // When editBillData prop changes, load it into the form
+  useEffect(() => {
+    if (editBillData && (editBillData._id || editBillData.id)) {
+      setCustomerName(editBillData.customerName || '');
+      setCustomerPhone(editBillData.customerPhone || '');
+      setCustomerAddress(editBillData.customerAddress || '');
+      setCompany(editBillData.companyName || storeSettings.companyName || 'Apsara Crackers');
+      setBillNo(String(editBillData.billNo || ''));
+      setBillDate(editBillData.date || new Date().toLocaleDateString('en-GB').replace(/\//g, '-'));
+      setDiscount(String(editBillData.discount ?? '0'));
+      setTransport(String(editBillData.transport ?? '0'));
+      setPacking(String(editBillData.packing ?? '0'));
+      setTax(String(editBillData.tax ?? '0'));
+      const rows: ProductRowItem[] = Array.isArray(editBillData.products) && editBillData.products.length > 0
+        ? editBillData.products.map((p: any, i: number) => ({
+            id: `edit-row-${i}-${Date.now()}`,
+            particular: p.particular || p.name || '',
+            quantity: String(p.quantity ?? '1'),
+            rate: String(p.rate ?? '0'),
+            pktUnit: p.pktUnit || 'Box',
+            amount: String(p.amount ?? ((parseFloat(String(p.quantity)) || 0) * (parseFloat(String(p.rate)) || 0)).toFixed(2)),
+          }))
+        : [];
+      setProductRows(rows);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editBillData]);
 
   // Print Preview Modal State
   const [printModalOpen, setPrintModalOpen] = useState<boolean>(false);
@@ -292,23 +326,82 @@ export const ParticularsPage: FC<ParticularsPageProps> = ({ initialCustomerName 
     }
     const qNum = parseFloat(quantity) || 1;
     const rNum = parseFloat(rate) || 0;
-    const amt = (qNum * rNum).toFixed(2);
 
-    const newRow: ProductRowItem = {
-      id: `row-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-      particular: selectedProduct.trim(),
-      quantity: String(qNum),
-      rate: String(rNum),
-      pktUnit: unit || 'Box',
-      amount: amt,
-    };
+    const existingIndex = productRows.findIndex(
+      (r) => r.particular.toLowerCase() === selectedProduct.trim().toLowerCase()
+    );
 
-    setProductRows((prev) => [...prev, newRow]);
+    if (existingIndex !== -1) {
+      setProductRows((prev) =>
+        prev.map((row, idx) => {
+          if (idx === existingIndex) {
+            const updatedQty = (parseFloat(row.quantity) || 0) + qNum;
+            const updatedRate = parseFloat(row.rate) || rNum;
+            const updatedAmt = (updatedQty * updatedRate).toFixed(2);
+            return {
+              ...row,
+              quantity: String(updatedQty),
+              rate: String(updatedRate),
+              amount: updatedAmt,
+            };
+          }
+          return row;
+        })
+      );
+    } else {
+      const amt = (qNum * rNum).toFixed(2);
+      const newRow: ProductRowItem = {
+        id: `row-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+        particular: selectedProduct.trim(),
+        quantity: String(qNum),
+        rate: String(rNum),
+        pktUnit: unit || 'Box',
+        amount: amt,
+      };
+      setProductRows((prev) => [...prev, newRow]);
+    }
+
     // Clear all product entry fields completely
     setSelectedProduct('');
     setRate('0');
     setQuantity('1');
     setUnit('Box');
+  };
+
+  // Change quantity directly in table row
+  const handleQuantityChange = (id: string, newQty: string) => {
+    setProductRows((prev) =>
+      prev.map((r) => {
+        if (r.id === id) {
+          const qNum = parseFloat(newQty) || 0;
+          const rNum = parseFloat(r.rate) || 0;
+          return {
+            ...r,
+            quantity: newQty,
+            amount: (qNum * rNum).toFixed(2),
+          };
+        }
+        return r;
+      })
+    );
+  };
+
+  // Change rate directly in table row
+  const handleRateChange = (id: string, newRate: string) => {
+    setProductRows((prev) =>
+      prev.map((r) => {
+        if (r.id === id) {
+          const qNum = parseFloat(r.quantity) || 0;
+          const rNum = parseFloat(newRate) || 0;
+          return {
+            ...r,
+            rate: newRate,
+            amount: (qNum * rNum).toFixed(2),
+          };
+        }
+        return r;
+      })
+    );
   };
 
   // Delete product row from current bill
@@ -383,7 +476,12 @@ export const ParticularsPage: FC<ParticularsPageProps> = ({ initialCustomerName 
         })),
       };
 
-      await ParticularsApi.create(payload);
+      if (isEditMode) {
+        const billId = editBillData._id || editBillData.id;
+        await ParticularsApi.update(billId, payload);
+      } else {
+        await ParticularsApi.create(payload);
+      }
 
       if (andPrint) {
         const printData: BillPrintData = {
@@ -406,24 +504,28 @@ export const ParticularsPage: FC<ParticularsPageProps> = ({ initialCustomerName 
         setPrintModalOpen(true);
       }
 
-      // Reset Bill Form & Reload Recent Bills
-      setProductRows([]);
-      setCustomerName('');
-      setCustomerPhone('');
-      setCustomerAddress('');
-      setDiscount('0');
-      setTransport('0');
-      setPacking('0');
-      setTax(storeSettings.enableTax ? (storeSettings.defaultTaxRate || '0') : '0');
-      localStorage.removeItem(DRAFT_BILL_STORAGE_KEY);
-      localStorage.removeItem('apsara_active_customer');
-      ['varun_draft_bill', 'dheeksha_draft_bill', 'varun_active_customer', 'dheeksha_active_customer'].forEach(k => localStorage.removeItem(k));
-      fetchNextBillNo();
-      refreshDate();
-      loadOptions();
-
-      if (!andPrint) {
-        alert(`Bill #${payload.billNo} saved successfully!`);
+      // Reset form after save/update
+      if (isEditMode) {
+        // After update, notify parent to go back & refresh
+        if (onEditSuccess) onEditSuccess();
+        if (!andPrint) alert(`Bill #${payload.billNo} updated successfully!`);
+      } else {
+        // Reset Bill Form & Reload Recent Bills
+        setProductRows([]);
+        setCustomerName('');
+        setCustomerPhone('');
+        setCustomerAddress('');
+        setDiscount('0');
+        setTransport('0');
+        setPacking('0');
+        setTax(storeSettings.enableTax ? (storeSettings.defaultTaxRate || '0') : '0');
+        localStorage.removeItem(DRAFT_BILL_STORAGE_KEY);
+        localStorage.removeItem('apsara_active_customer');
+        ['varun_draft_bill', 'dheeksha_draft_bill', 'varun_active_customer', 'dheeksha_active_customer'].forEach(k => localStorage.removeItem(k));
+        fetchNextBillNo();
+        refreshDate();
+        loadOptions();
+        if (!andPrint) alert(`Bill #${payload.billNo} saved successfully!`);
       }
     } catch (err: any) {
       console.error('Failed to save bill:', err);
@@ -484,10 +586,12 @@ export const ParticularsPage: FC<ParticularsPageProps> = ({ initialCustomerName 
               lineHeight: 1.2,
             }}
           >
-            Create Customer Bill
+            {isEditMode ? `Edit Bill #${billNo}` : 'Create Customer Bill'}
           </Typography>
           <Typography sx={{ fontSize: '13.5px', color: '#64748B', mt: 0.5, fontWeight: 600 }}>
-            Generate standard invoice, itemize goods, apply tax/discounts, and print bills.
+            {isEditMode
+              ? 'Modify invoice details, update line items, quantities and charges, then save.'
+              : 'Generate standard invoice, itemize goods, apply tax/discounts, and print bills.'}
           </Typography>
         </Box>
 
@@ -854,7 +958,7 @@ export const ParticularsPage: FC<ParticularsPageProps> = ({ initialCustomerName 
                       '&:hover': { borderColor: '#B45309', backgroundColor: '#F8FAFC' },
                     }}
                   >
-                    Save Bill
+                    {isEditMode ? 'Update Bill' : 'Save Bill'}
                   </Button>
 
                   <Button
@@ -875,7 +979,7 @@ export const ParticularsPage: FC<ParticularsPageProps> = ({ initialCustomerName 
                       '&:hover': { background: 'linear-gradient(135deg, #B91C1C 0%, #991B1B 100%)' },
                     }}
                   >
-                    Save & Print
+                    {isEditMode ? 'Update & Print' : 'Save & Print'}
                   </Button>
                 </Box>
 
@@ -1128,19 +1232,19 @@ export const ParticularsPage: FC<ParticularsPageProps> = ({ initialCustomerName 
               <Table stickyHeader size="small" aria-label="bill items table" sx={{ minWidth: { xs: '540px', sm: '100%' } }}>
                 <TableHead>
                   <TableRow sx={{ backgroundColor: '#F8FAFC' }}>
-                    <TableCell sx={{ fontWeight: 800, fontSize: '11.5px', color: '#1E293B', width: '50px', backgroundColor: '#F8FAFC' }}>
+                    <TableCell sx={{ fontWeight: 800, fontSize: '11.5px', color: '#1E293B', width: '45px', backgroundColor: '#F8FAFC' }}>
                       #
                     </TableCell>
                     <TableCell sx={{ fontWeight: 800, fontSize: '11.5px', color: '#1E293B', backgroundColor: '#F8FAFC' }}>
                       PRODUCT / PARTICULAR
                     </TableCell>
-                    <TableCell align="center" sx={{ fontWeight: 800, fontSize: '11.5px', color: '#1E293B', width: '80px', backgroundColor: '#F8FAFC' }}>
+                    <TableCell align="center" sx={{ fontWeight: 800, fontSize: '11.5px', color: '#1E293B', width: '75px', backgroundColor: '#F8FAFC' }}>
                       UNIT
                     </TableCell>
-                    <TableCell align="center" sx={{ fontWeight: 800, fontSize: '11.5px', color: '#1E293B', width: '80px', backgroundColor: '#F8FAFC' }}>
+                    <TableCell align="center" sx={{ fontWeight: 800, fontSize: '11.5px', color: '#1E293B', width: '140px', backgroundColor: '#F8FAFC' }}>
                       QTY
                     </TableCell>
-                    <TableCell align="right" sx={{ fontWeight: 800, fontSize: '11.5px', color: '#1E293B', width: '100px', backgroundColor: '#F8FAFC' }}>
+                    <TableCell align="right" sx={{ fontWeight: 800, fontSize: '11.5px', color: '#1E293B', width: '110px', backgroundColor: '#F8FAFC' }}>
                       RATE (₹)
                     </TableCell>
                     <TableCell align="right" sx={{ fontWeight: 800, fontSize: '11.5px', color: '#1E293B', width: '110px', backgroundColor: '#F8FAFC' }}>
@@ -1175,11 +1279,85 @@ export const ParticularsPage: FC<ParticularsPageProps> = ({ initialCustomerName 
                         <TableCell align="center" sx={{ fontSize: '12px', color: '#57463A' }}>
                           {row.pktUnit}
                         </TableCell>
-                        <TableCell align="center" sx={{ fontSize: '13.5px', fontWeight: 700 }}>
-                          {row.quantity}
+                        <TableCell align="center" sx={{ py: 0.8 }}>
+                          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5 }}>
+                            <IconButton
+                              size="small"
+                              onClick={() => {
+                                const current = parseFloat(row.quantity) || 1;
+                                if (current > 1) {
+                                  handleQuantityChange(row.id, String(current - 1));
+                                }
+                              }}
+                              sx={{
+                                p: 0.3,
+                                border: '1px solid #CBD5E1',
+                                borderRadius: '4px',
+                                color: '#64748B',
+                                '&:hover': { backgroundColor: '#FEF2F2', color: '#B91C1C', borderColor: '#FCA5A5' },
+                              }}
+                            >
+                              <RemoveRoundedIcon sx={{ fontSize: 13 }} />
+                            </IconButton>
+                            <TextField
+                              size="small"
+                              type="number"
+                              value={row.quantity}
+                              onChange={(e) => handleQuantityChange(row.id, e.target.value)}
+                              slotProps={{
+                                htmlInput: {
+                                  min: 1,
+                                  style: { textAlign: 'center', fontWeight: 800, padding: '3px 4px', fontSize: '13px' },
+                                },
+                              }}
+                              sx={{
+                                width: '56px',
+                                backgroundColor: '#FFFFFF',
+                                borderRadius: '6px',
+                                '& .MuiOutlinedInput-notchedOutline': { borderColor: '#CBD5E1' },
+                                '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#B91C1C' },
+                                '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#B91C1C' },
+                              }}
+                            />
+                            <IconButton
+                              size="small"
+                              onClick={() => {
+                                const current = parseFloat(row.quantity) || 0;
+                                handleQuantityChange(row.id, String(current + 1));
+                              }}
+                              sx={{
+                                p: 0.3,
+                                border: '1px solid #CBD5E1',
+                                borderRadius: '4px',
+                                color: '#64748B',
+                                '&:hover': { backgroundColor: '#F0FDF4', color: '#166534', borderColor: '#86EFAC' },
+                              }}
+                            >
+                              <AddRoundedIcon sx={{ fontSize: 13 }} />
+                            </IconButton>
+                          </Box>
                         </TableCell>
-                        <TableCell align="right" sx={{ fontSize: '13.5px', fontWeight: 700, color: '#475569' }}>
-                          ₹{Number(row.rate || 0).toFixed(2)}
+                        <TableCell align="right" sx={{ py: 0.8 }}>
+                          <TextField
+                            size="small"
+                            type="number"
+                            value={row.rate}
+                            onChange={(e) => handleRateChange(row.id, e.target.value)}
+                            slotProps={{
+                              htmlInput: {
+                                min: 0,
+                                style: { textAlign: 'right', fontWeight: 700, padding: '3px 6px', fontSize: '13px', color: '#475569' },
+                              },
+                            }}
+                            sx={{
+                              width: '85px',
+                              backgroundColor: '#FFFFFF',
+                              borderRadius: '6px',
+                              '& .MuiOutlinedInput-notchedOutline': { borderColor: '#CBD5E1' },
+                              '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#B91C1C' },
+                              '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#B91C1C' },
+                            }}
+                          />
                         </TableCell>
                         <TableCell align="right" sx={{ fontSize: '14px', fontWeight: 800, color: '#B91C1C' }}>
                           ₹{Number(row.amount || 0).toFixed(2)}

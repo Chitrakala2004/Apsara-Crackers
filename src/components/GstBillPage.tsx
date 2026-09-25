@@ -25,6 +25,7 @@ import {
   InputAdornment,
 } from '@mui/material';
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
+import RemoveRoundedIcon from '@mui/icons-material/RemoveRounded';
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
 import PrintOutlinedIcon from '@mui/icons-material/PrintOutlined';
 import ClearRoundedIcon from '@mui/icons-material/ClearRounded';
@@ -391,21 +392,83 @@ export const GstBillPage: FC = () => {
     const qNum = parseFloat(quantity) || 1;
     const rNum = parseFloat(rate) || 0;
 
-    const newItem: GstProductItem = {
-      particular: selectedProduct.trim(),
-      hsnCode: hsnCode || '3604',
-      quantity: qNum,
-      unit: unit || 'Box',
-      rate: rNum,
-      gstRate: parseFloat(overallGstRate) || 18,
-      taxableAmount: (qNum * rNum).toFixed(2),
-      amount: (qNum * rNum).toFixed(2),
-    };
+    const existingIndex = productRows.findIndex(
+      (r) => r.particular.toLowerCase() === selectedProduct.trim().toLowerCase()
+    );
 
-    setProductRows((prev) => [...prev, newItem]);
+    if (existingIndex !== -1) {
+      setProductRows((prev) =>
+        prev.map((row, idx) => {
+          if (idx === existingIndex) {
+            const updatedQty = (parseFloat(String(row.quantity)) || 0) + qNum;
+            const updatedRate = parseFloat(String(row.rate)) || rNum;
+            const updatedAmt = (updatedQty * updatedRate).toFixed(2);
+            return {
+              ...row,
+              quantity: updatedQty,
+              rate: updatedRate,
+              taxableAmount: updatedAmt,
+              amount: updatedAmt,
+            };
+          }
+          return row;
+        })
+      );
+    } else {
+      const newItem: GstProductItem = {
+        particular: selectedProduct.trim(),
+        hsnCode: hsnCode || '3604',
+        quantity: qNum,
+        unit: unit || 'Box',
+        rate: rNum,
+        gstRate: parseFloat(overallGstRate) || 18,
+        taxableAmount: (qNum * rNum).toFixed(2),
+        amount: (qNum * rNum).toFixed(2),
+      };
+      setProductRows((prev) => [...prev, newItem]);
+    }
+
     setSelectedProduct('');
     setQuantity('1');
     setRate('0');
+  };
+
+  const handleQuantityChange = (idx: number, newQty: string) => {
+    setProductRows((prev) =>
+      prev.map((row, i) => {
+        if (i === idx) {
+          const qNum = parseFloat(newQty) || 0;
+          const rNum = parseFloat(String(row.rate)) || 0;
+          const rowAmt = (qNum * rNum).toFixed(2);
+          return {
+            ...row,
+            quantity: qNum,
+            taxableAmount: rowAmt,
+            amount: rowAmt,
+          };
+        }
+        return row;
+      })
+    );
+  };
+
+  const handleRateChange = (idx: number, newRate: string) => {
+    setProductRows((prev) =>
+      prev.map((row, i) => {
+        if (i === idx) {
+          const qNum = parseFloat(String(row.quantity)) || 0;
+          const rNum = parseFloat(newRate) || 0;
+          const rowAmt = (qNum * rNum).toFixed(2);
+          return {
+            ...row,
+            rate: rNum,
+            taxableAmount: rowAmt,
+            amount: rowAmt,
+          };
+        }
+        return row;
+      })
+    );
   };
 
   const handleRemoveRow = (idx: number) => {
@@ -1177,9 +1240,9 @@ export const GstBillPage: FC = () => {
                       <TableCell sx={{ fontWeight: 700, color: '#1E293B', width: '35px', textAlign: 'center' }}>#</TableCell>
                       <TableCell sx={{ fontWeight: 700, color: '#1E293B' }}>Particulars / Product Name</TableCell>
                       <TableCell sx={{ fontWeight: 700, color: '#1E293B', textAlign: 'center', width: '70px' }}>HSN</TableCell>
-                      <TableCell sx={{ fontWeight: 700, color: '#1E293B', textAlign: 'center', width: '60px' }}>Qty</TableCell>
+                      <TableCell sx={{ fontWeight: 700, color: '#1E293B', textAlign: 'center', width: '135px' }}>Qty</TableCell>
                       <TableCell sx={{ fontWeight: 700, color: '#1E293B', textAlign: 'center', width: '60px' }}>Unit</TableCell>
-                      <TableCell sx={{ fontWeight: 700, color: '#1E293B', textAlign: 'right', width: '90px' }}>Rate (₹)</TableCell>
+                      <TableCell sx={{ fontWeight: 700, color: '#1E293B', textAlign: 'right', width: '100px' }}>Rate (₹)</TableCell>
                       <TableCell sx={{ fontWeight: 700, color: '#1E293B', textAlign: 'right', width: '105px' }}>Amount (₹)</TableCell>
                       <TableCell sx={{ width: '40px', textAlign: 'center' }}></TableCell>
                     </TableRow>
@@ -1197,10 +1260,88 @@ export const GstBillPage: FC = () => {
                           <TableCell sx={{ textAlign: 'center' }}>{idx + 1}</TableCell>
                           <TableCell sx={{ fontWeight: 600 }}>{row.particular}</TableCell>
                           <TableCell sx={{ textAlign: 'center', color: '#64748B' }}>{row.hsnCode || '3604'}</TableCell>
-                          <TableCell sx={{ textAlign: 'center' }}>{row.quantity}</TableCell>
+                          <TableCell sx={{ textAlign: 'center', py: 0.5 }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5 }}>
+                              <IconButton
+                                size="small"
+                                onClick={() => {
+                                  const current = parseFloat(String(row.quantity)) || 1;
+                                  if (current > 1) {
+                                    handleQuantityChange(idx, String(current - 1));
+                                  }
+                                }}
+                                sx={{
+                                  p: 0.3,
+                                  border: '1px solid #CBD5E1',
+                                  borderRadius: '4px',
+                                  color: '#64748B',
+                                  '&:hover': { backgroundColor: '#FEF2F2', color: '#DC2626', borderColor: '#FCA5A5' },
+                                }}
+                              >
+                                <RemoveRoundedIcon sx={{ fontSize: 13 }} />
+                              </IconButton>
+                              <TextField
+                                size="small"
+                                type="number"
+                                value={row.quantity}
+                                onChange={(e) => handleQuantityChange(idx, e.target.value)}
+                                slotProps={{
+                                  htmlInput: {
+                                    min: 1,
+                                    style: { textAlign: 'center', fontWeight: 700, padding: '3px 4px', fontSize: '13px' },
+                                  },
+                                }}
+                                sx={{
+                                  width: '52px',
+                                  backgroundColor: '#FFFFFF',
+                                  borderRadius: '6px',
+                                  '& .MuiOutlinedInput-notchedOutline': { borderColor: '#CBD5E1' },
+                                  '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#DC2626' },
+                                  '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#DC2626' },
+                                }}
+                              />
+                              <IconButton
+                                size="small"
+                                onClick={() => {
+                                  const current = parseFloat(String(row.quantity)) || 0;
+                                  handleQuantityChange(idx, String(current + 1));
+                                }}
+                                sx={{
+                                  p: 0.3,
+                                  border: '1px solid #CBD5E1',
+                                  borderRadius: '4px',
+                                  color: '#64748B',
+                                  '&:hover': { backgroundColor: '#F0FDF4', color: '#166534', borderColor: '#86EFAC' },
+                                }}
+                              >
+                                <AddRoundedIcon sx={{ fontSize: 13 }} />
+                              </IconButton>
+                            </Box>
+                          </TableCell>
                           <TableCell sx={{ textAlign: 'center' }}>{row.unit}</TableCell>
-                          <TableCell sx={{ textAlign: 'right' }}>₹{parseFloat(String(row.rate)).toFixed(2)}</TableCell>
-                          <TableCell sx={{ textAlign: 'right', fontWeight: 700 }}>₹{row.amount}</TableCell>
+                          <TableCell sx={{ textAlign: 'right', py: 0.5 }}>
+                            <TextField
+                              size="small"
+                              type="number"
+                              value={row.rate}
+                              onChange={(e) => handleRateChange(idx, e.target.value)}
+                              slotProps={{
+                                htmlInput: {
+                                  min: 0,
+                                  style: { textAlign: 'right', fontWeight: 700, padding: '3px 6px', fontSize: '13px', color: '#475569' },
+                                },
+                              }}
+                              sx={{
+                                width: '80px',
+                                backgroundColor: '#FFFFFF',
+                                borderRadius: '6px',
+                                '& .MuiOutlinedInput-notchedOutline': { borderColor: '#CBD5E1' },
+                                '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#DC2626' },
+                                '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#DC2626' },
+                              }}
+                            />
+                          </TableCell>
+                          <TableCell sx={{ textAlign: 'right', fontWeight: 700, color: '#DC2626' }}>₹{row.amount}</TableCell>
                           <TableCell sx={{ textAlign: 'center' }}>
                             <IconButton size="small" onClick={() => handleRemoveRow(idx)} sx={{ color: '#EF4444' }}>
                               <DeleteOutlineRoundedIcon sx={{ fontSize: 18 }} />
