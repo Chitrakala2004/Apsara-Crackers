@@ -27,7 +27,6 @@ import RemoveRoundedIcon from '@mui/icons-material/RemoveRounded';
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
 import PrintOutlinedIcon from '@mui/icons-material/PrintOutlined';
 import ClearRoundedIcon from '@mui/icons-material/ClearRounded';
-import RotateLeftRoundedIcon from '@mui/icons-material/RotateLeftRounded';
 import ReceiptLongRoundedIcon from '@mui/icons-material/ReceiptLongRounded';
 import FileDownloadOutlinedIcon from '@mui/icons-material/FileDownloadOutlined';
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded';
@@ -35,7 +34,6 @@ import CheckCircleOutlineRoundedIcon from '@mui/icons-material/CheckCircleOutlin
 import AccountBalanceOutlinedIcon from '@mui/icons-material/AccountBalanceOutlined';
 import TrendingUpRoundedIcon from '@mui/icons-material/TrendingUpRounded';
 import SaveRoundedIcon from '@mui/icons-material/SaveRounded';
-import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
 import WhatsAppIcon from '@mui/icons-material/WhatsApp';
 
 import {
@@ -49,6 +47,7 @@ import { getStoredSettings } from './SettingsPage';
 import { GstBillPrintModal } from './GstBillPrintModal';
 import type { GstBillPrintData, GstProductItem } from './GstBillPrintTemplate';
 import { numberToIndianWords } from '../utils/numberToWords';
+import { printGstBillDirectly } from '../utils/printUtils';
 
 export const INDIAN_STATES = [
   { code: '33', name: 'Tamil Nadu' },
@@ -562,7 +561,7 @@ export const GstBillPage: FC = () => {
   };
 
   // Save GST Bill
-  const handleSaveGstBill = async (andPrint = false) => {
+  const handleSaveGstBill = async (actionType: 'save' | 'print' | 'share' = 'save') => {
     if (!customerName.trim()) {
       alert('Please specify a customer name');
       return;
@@ -654,7 +653,9 @@ export const GstBillPage: FC = () => {
       // Reset form immediately for fresh new bill entry
       handleResetForm();
 
-      if (andPrint) {
+      if (actionType === 'print') {
+        printGstBillDirectly(billData);
+      } else if (actionType === 'share') {
         setSelectedBillForPrint(billData);
         setPrintModalOpen(true);
       }
@@ -1008,9 +1009,9 @@ export const GstBillPage: FC = () => {
                 <TrendingUpRoundedIcon sx={{ fontSize: 26 }} />
               </Box>
               <Box>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-                  <Typography sx={{ fontSize: '14.5px', fontWeight: 800, color: '#991B1B' }}>
-                    Sales Turnover Baseline (Section 10 - Composition Scheme)
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2, flexWrap: 'wrap' }}>
+                  <Typography sx={{ fontSize: '15px', fontWeight: 800, color: '#991B1B' }}>
+                    Sales Turnover
                   </Typography>
                   <Chip
                     size="small"
@@ -1023,9 +1024,6 @@ export const GstBillPage: FC = () => {
                     }}
                   />
                 </Box>
-                <Typography sx={{ fontSize: '12px', color: '#7F1D1D', mt: 0.3 }}>
-                  Sales Turnover oru oru bill-kum enter panna thevaiyillai. Top-la enter panni save seitha amount-udan, aduthadutha bill-gal save aagum pothu automatic aaga add aagi calculate aagum.
-                </Typography>
               </Box>
             </Box>
 
@@ -1777,30 +1775,9 @@ export const GstBillPage: FC = () => {
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, mt: 3.5 }}>
                 <Button
                   fullWidth
-                  variant="outlined"
-                  onClick={() => {
-                    const previewData = buildCurrentGstBillData();
-                    setSelectedBillForPrint(previewData);
-                    setPrintModalOpen(true);
-                  }}
-                  startIcon={<VisibilityOutlinedIcon />}
-                  sx={{
-                    color: '#1E40AF',
-                    borderColor: '#93C5FD',
-                    fontWeight: 800,
-                    py: 1.1,
-                    backgroundColor: '#EFF6FF',
-                    '&:hover': { backgroundColor: '#DBEAFE', borderColor: '#3B82F6' },
-                  }}
-                >
-                  Preview Tax Invoice
-                </Button>
-
-                <Button
-                  fullWidth
                   variant="contained"
                   disabled={savingBill}
-                  onClick={() => handleSaveGstBill(true)}
+                  onClick={() => handleSaveGstBill('print')}
                   startIcon={savingBill ? <CircularProgress size={18} color="inherit" /> : <PrintOutlinedIcon />}
                   sx={{
                     backgroundColor: '#DC2626',
@@ -1817,7 +1794,7 @@ export const GstBillPage: FC = () => {
                   fullWidth
                   variant="contained"
                   disabled={savingBill}
-                  onClick={() => handleSaveGstBill(true)}
+                  onClick={() => handleSaveGstBill('share')}
                   startIcon={savingBill ? <CircularProgress size={18} color="inherit" /> : <WhatsAppIcon />}
                   sx={{
                     backgroundColor: '#16A34A',
@@ -1835,7 +1812,7 @@ export const GstBillPage: FC = () => {
                   fullWidth
                   variant="outlined"
                   disabled={savingBill}
-                  onClick={() => handleSaveGstBill(false)}
+                  onClick={() => handleSaveGstBill('save')}
                   sx={{
                     color: '#0F172A',
                     borderColor: '#CBD5E1',
@@ -1845,22 +1822,6 @@ export const GstBillPage: FC = () => {
                   }}
                 >
                   Save Only
-                </Button>
-
-                <Button
-                  fullWidth
-                  variant="outlined"
-                  onClick={handleResetForm}
-                  startIcon={<RotateLeftRoundedIcon />}
-                  sx={{
-                    color: '#DC2626',
-                    borderColor: '#FECACA',
-                    fontWeight: 700,
-                    py: 0.9,
-                    '&:hover': { backgroundColor: '#FEF2F2', borderColor: '#DC2626' },
-                  }}
-                >
-                  New Bill / Reset Form
                 </Button>
               </Box>
             </Paper>
@@ -2026,8 +1987,7 @@ export const GstBillPage: FC = () => {
                                 <IconButton
                                   size="small"
                                   onClick={() => {
-                                    setSelectedBillForPrint(bill);
-                                    setPrintModalOpen(true);
+                                    printGstBillDirectly(bill);
                                   }}
                                   sx={{ color: '#1E40AF' }}
                                 >

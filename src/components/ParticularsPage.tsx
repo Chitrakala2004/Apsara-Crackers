@@ -36,6 +36,7 @@ import {
 import { getStoredSettings } from './SettingsPage';
 import { BillPrintModal } from './BillPrintModal';
 import type { BillPrintData } from './BillPrintTemplate';
+import { printBillDirectly } from '../utils/printUtils';
 
 interface ProductRowItem {
   id: string;
@@ -441,7 +442,7 @@ export const ParticularsPage: FC<ParticularsPageProps> = ({ initialCustomerName,
   }, [subtotal, discountAmount, transport, packing, tax, storeSettings.enableTax]);
 
   // Save Bill to DB
-  const handleSaveBill = async (andPrint: boolean = false) => {
+  const handleSaveBill = async (actionType: 'save' | 'print' | 'share' = 'save') => {
     if (!customerName.trim()) {
       alert('Please select or enter Customer Name');
       return;
@@ -484,7 +485,7 @@ export const ParticularsPage: FC<ParticularsPageProps> = ({ initialCustomerName,
         await ParticularsApi.create(payload);
       }
 
-      if (andPrint) {
+      if (actionType === 'print' || actionType === 'share') {
         const printData: BillPrintData = {
           billNo: payload.billNo,
           date: payload.date,
@@ -501,15 +502,19 @@ export const ParticularsPage: FC<ParticularsPageProps> = ({ initialCustomerName,
           total: payload.total,
           products: payload.products,
         };
-        setSelectedBillForPrint(printData);
-        setPrintModalOpen(true);
+        if (actionType === 'print') {
+          printBillDirectly(printData);
+        } else {
+          setSelectedBillForPrint(printData);
+          setPrintModalOpen(true);
+        }
       }
 
       // Reset form after save/update
       if (isEditMode) {
         // After update, notify parent to go back & refresh
         if (onEditSuccess) onEditSuccess();
-        if (!andPrint) alert(`Bill #${payload.billNo} updated successfully!`);
+        if (actionType === 'save') alert(`Bill #${payload.billNo} updated successfully!`);
       } else {
         // Reset Bill Form & Reload Recent Bills
         setProductRows([]);
@@ -526,7 +531,7 @@ export const ParticularsPage: FC<ParticularsPageProps> = ({ initialCustomerName,
         fetchNextBillNo();
         refreshDate();
         loadOptions();
-        if (!andPrint) alert(`Bill #${payload.billNo} saved successfully!`);
+        if (actionType === 'save') alert(`Bill #${payload.billNo} saved successfully!`);
       }
     } catch (err: any) {
       console.error('Failed to save bill:', err);
@@ -947,7 +952,7 @@ export const ParticularsPage: FC<ParticularsPageProps> = ({ initialCustomerName,
                   <Button
                     fullWidth
                     variant="outlined"
-                    onClick={() => handleSaveBill(false)}
+                    onClick={() => handleSaveBill('save')}
                     disabled={savingBill || productRows.length === 0}
                     sx={{
                       borderColor: '#F59E0B',
@@ -966,7 +971,7 @@ export const ParticularsPage: FC<ParticularsPageProps> = ({ initialCustomerName,
                     fullWidth
                     variant="contained"
                     disableElevation
-                    onClick={() => handleSaveBill(true)}
+                    onClick={() => handleSaveBill('print')}
                     disabled={savingBill || productRows.length === 0}
                     startIcon={savingBill ? <CircularProgress size={16} color="inherit" /> : <PrintOutlinedIcon />}
                     sx={{
@@ -988,7 +993,7 @@ export const ParticularsPage: FC<ParticularsPageProps> = ({ initialCustomerName,
                   fullWidth
                   variant="contained"
                   disableElevation
-                  onClick={() => handleSaveBill(true)}
+                  onClick={() => handleSaveBill('share')}
                   disabled={savingBill || productRows.length === 0}
                   startIcon={savingBill ? <CircularProgress size={16} color="inherit" /> : <WhatsAppIcon />}
                   sx={{
