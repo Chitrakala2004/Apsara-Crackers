@@ -704,11 +704,8 @@ export const generateGstBillHtml = (bill: GstBillPrintData, copiesCount: number 
             </div>
           </div>
 
-          <div style="width: 75px; text-align: center; flex-shrink: 0;">
-            <img src="${apsaraImgUrl}" alt="APSARA" style="max-height: 52px; max-width: 65px; object-fit: contain; display: block; margin: 0 auto;" />
-            <div style="font-size: 11px; font-weight: 900; letter-spacing: 0.08em; text-align: center; margin-top: 1px; color: #000000;">
-              APSARA
-            </div>
+          <div style="width: 85px; text-align: center; flex-shrink: 0;">
+            <img src="${apsaraImgUrl}" alt="Apsara Crackers" style="max-height: 68px; max-width: 85px; object-fit: contain; display: block; margin: 0 auto;" />
           </div>
         </div>
 

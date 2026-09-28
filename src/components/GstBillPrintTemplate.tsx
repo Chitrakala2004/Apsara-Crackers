@@ -337,31 +337,19 @@ export const GstBillPrintTemplate: React.FC<GstBillPrintTemplateProps> = ({ bill
             </div>
           </div>
 
-          {/* Right: Apsara Feather Logo */}
-          <div style={{ width: '75px', textAlign: 'center', flexShrink: 0 }}>
+          {/* Right: Apsara Crackers Logo */}
+          <div style={{ width: '85px', textAlign: 'center', flexShrink: 0 }}>
             <img
               src={defaultApsaraFeatherLogo}
-              alt="APSARA"
+              alt="Apsara Crackers"
               style={{
-                maxHeight: '52px',
-                maxWidth: '65px',
+                maxHeight: '68px',
+                maxWidth: '85px',
                 objectFit: 'contain',
                 display: 'block',
                 margin: '0 auto',
               }}
             />
-            <div
-              style={{
-                fontSize: '11px',
-                fontWeight: 900,
-                letterSpacing: '0.08em',
-                textAlign: 'center',
-                marginTop: '1px',
-                color: '#000000',
-              }}
-            >
-              APSARA
-            </div>
           </div>
         </div>
 
