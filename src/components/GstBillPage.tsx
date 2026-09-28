@@ -116,11 +116,11 @@ export const GstBillPage: FC = () => {
   const [rate, setRate] = useState<string>('0');
 
   // Additional Invoice Fields
-  const [despatchFrom, setDespatchFrom] = useState<string>('SIVAKASI');
+  const [despatchFrom, setDespatchFrom] = useState<string>('');
   const [despatchTo, setDespatchTo] = useState<string>('');
-  const [transport, setTransport] = useState<string>('Palani murugan transport');
+  const [transport, setTransport] = useState<string>('');
   const [transportGstin, setTransportGstin] = useState<string>('');
-  const [deliverySameAsBilling, setDeliverySameAsBilling] = useState<boolean>(true);
+  const [deliverySameAsBilling, setDeliverySameAsBilling] = useState<boolean>(false);
   const [deliveryName, setDeliveryName] = useState<string>('');
   const [deliveryAddress, setDeliveryAddress] = useState<string>('');
   const [deliveryAadhar, setDeliveryAadhar] = useState<string>('');
@@ -128,13 +128,13 @@ export const GstBillPage: FC = () => {
   const [packingPercent, setPackingPercent] = useState<string>('0.00');
   // Sales Turnover Tracking (Persistent baseline across bills)
   const [currentTurnover, setCurrentTurnover] = useState<string>(() => {
-    return localStorage.getItem('apsara_gst_turnover_current') || storeSettings.gstTurnoverCurrent || '726900.00';
+    return localStorage.getItem('apsara_gst_turnover_current') || storeSettings.gstTurnoverCurrent || '0.00';
   });
   const [topTurnoverInput, setTopTurnoverInput] = useState<string>(() => {
-    return localStorage.getItem('apsara_gst_turnover_current') || storeSettings.gstTurnoverCurrent || '726900.00';
+    return localStorage.getItem('apsara_gst_turnover_current') || storeSettings.gstTurnoverCurrent || '0.00';
   });
   const [turnoverSnackbar, setTurnoverSnackbar] = useState<string>('');
-  const [hsnNo, setHsnNo] = useState<string>('3604');
+  const [hsnNo, setHsnNo] = useState<string>('');
 
   // Line items list
   const [productRows, setProductRows] = useState<GstProductItem[]>([]);
@@ -263,11 +263,11 @@ export const GstBillPage: FC = () => {
     setCustomerAddress('');
     setCustomerGst('');
     setCustomerAadhar('');
-    setDespatchFrom('SIVAKASI');
+    setDespatchFrom('');
     setDespatchTo('');
-    setTransport('Palani murugan transport');
+    setTransport('');
     setTransportGstin('');
-    setDeliverySameAsBilling(true);
+    setDeliverySameAsBilling(false);
     setDeliveryName('');
     setDeliveryAddress('');
     setDeliveryAadhar('');
@@ -275,7 +275,8 @@ export const GstBillPage: FC = () => {
     setPackingPercent('0.00');
     setPlaceOfSupply('Tamil Nadu (33)');
     setSelectedProduct('');
-    setHsnCode('3604');
+    setHsnCode('');
+    setHsnNo('');
     setQuantity('1');
     setUnit('Case');
     setRate('0');
@@ -547,21 +548,21 @@ export const GstBillPage: FC = () => {
       customerAddress: customerAddress || '',
       customerGst: customerGst || '',
       customerAadhar: customerAadhar || '',
-      deliveryName: isDelivSame ? customerName : (deliveryName || customerName || ''),
-      deliveryAddress: isDelivSame ? customerAddress : (deliveryAddress || customerAddress || ''),
-      deliveryAadhar: isDelivSame ? customerAadhar : (deliveryAadhar || customerAadhar || ''),
+      deliveryName: isDelivSame ? customerName : (deliveryName || ''),
+      deliveryAddress: isDelivSame ? customerAddress : (deliveryAddress || ''),
+      deliveryAadhar: isDelivSame ? customerAadhar : (deliveryAadhar || ''),
       placeOfSupply,
       reverseCharge: 'No',
       vehicleNo: '',
       ewayBillNo: '',
-      transport: transport || 'Palani murugan transport',
+      transport: transport || '',
       transportGstin: transportGstin || '',
-      despatchFrom: despatchFrom || 'SIVAKASI',
-      despatchTo: despatchTo || customerAddress || '',
+      despatchFrom: despatchFrom || '',
+      despatchTo: despatchTo || '',
       caseCount: lineCalculations.totalCases,
       companyName: 'APSARA TRADERS',
       gstin: storeSettings.gstin || '33ABFFA6758B1ZP',
-      hsnNo: hsnNo || hsnCode || '3604',
+      hsnNo: hsnNo || hsnCode || '',
       products: lineCalculations.computedRows,
       subtotal: lineCalculations.taxableTotal,
       discount: lineCalculations.discountAmount,
@@ -1154,7 +1155,7 @@ export const GstBillPage: FC = () => {
                     label="Despatch From"
                     value={despatchFrom}
                     onChange={(e) => setDespatchFrom(e.target.value)}
-                    placeholder="SIVAKASI"
+                    placeholder="e.g. SIVAKASI"
                   />
                 </Grid>
                 <Grid size={{ xs: 12, sm: 3 }}>
@@ -1164,7 +1165,7 @@ export const GstBillPage: FC = () => {
                     label="Despatch To"
                     value={despatchTo}
                     onChange={(e) => setDespatchTo(e.target.value)}
-                    placeholder="e.g. Urappakam"
+                    placeholder="e.g. Destination"
                   />
                 </Grid>
 
@@ -1175,7 +1176,7 @@ export const GstBillPage: FC = () => {
                     label="Transport Name"
                     value={transport}
                     onChange={(e) => setTransport(e.target.value)}
-                    placeholder="e.g. Palani murugan transport"
+                    placeholder="Transport name (optional)"
                   />
                 </Grid>
                 <Grid size={{ xs: 12, sm: 4 }}>
@@ -1195,7 +1196,7 @@ export const GstBillPage: FC = () => {
                     label="HSN Code"
                     value={hsnNo}
                     onChange={(e) => setHsnNo(e.target.value)}
-                    placeholder="3604"
+                    placeholder="e.g. 3604"
                   />
                 </Grid>
               </Grid>

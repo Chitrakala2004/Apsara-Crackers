@@ -584,7 +584,7 @@ export const generateGstBillHtml = (bill: GstBillPrintData, copiesCount: number 
   const primaryUnit = products[0]?.unit || products[0]?.per || 'Case';
   const totalQuantityWithUnit = bill.caseCount !== undefined && bill.caseCount !== '' && bill.caseCount !== '0'
     ? `${bill.caseCount} Case`
-    : `${totalQtyComputed} ${primaryUnit}`;
+    : (totalQtyComputed > 0 ? `${totalQtyComputed} ${primaryUnit}` : '');
 
   const rawCustName = (bill.customerName || '').trim();
   const customerDisplayName = rawCustName ? (rawCustName.toLowerCase().startsWith('m/s') ? rawCustName : `M/s. ${rawCustName}`) : '';
@@ -593,22 +593,22 @@ export const generateGstBillHtml = (bill: GstBillPrintData, copiesCount: number 
     : '';
   const customerAadharOrPan = (bill.customerAadhar || bill.customerPan || bill.customerGst || '').trim();
 
-  const rawDeliveryName = (bill.deliveryName || bill.customerName || '').trim();
+  const rawDeliveryName = (bill.deliveryName || '').trim();
   const deliveryDisplayName = rawDeliveryName ? (rawDeliveryName.toLowerCase().startsWith('m/s') ? rawDeliveryName : `M/s. ${rawDeliveryName}`) : '';
   const deliveryAddressFormatted = bill.deliveryAddress && bill.deliveryAddress !== 'N/A' && bill.deliveryAddress !== '-'
     ? bill.deliveryAddress
-    : customerAddressFormatted;
-  const deliveryAadharOrPan = (bill.deliveryAadhar || customerAadharOrPan || '').trim();
+    : '';
+  const deliveryAadharOrPan = (bill.deliveryAadhar || '').trim();
 
-  const despatchFrom = bill.despatchFrom || 'SIVAKASI';
-  const despatchTo = bill.despatchTo || customerAddressFormatted || '';
+  const despatchFrom = bill.despatchFrom || '';
+  const despatchTo = bill.despatchTo || '';
   const transportName = (bill.transport && bill.transport !== '-' && bill.transport !== '0')
     ? bill.transport
     : '';
   const transportGstin = bill.transportGstin || '';
-  const hsnNo = bill.hsnNo || products[0]?.hsnCode || '3604';
+  const hsnNo = bill.hsnNo || products[0]?.hsnCode || '';
 
-  const prevTurnoverNum = parseFloat(String(bill.previousTurnover || 726900)) || 726900;
+  const prevTurnoverNum = parseFloat(String(bill.previousTurnover || 0)) || 0;
   const thisBillTurnoverNum = parseFloat(String(bill.thisBillTurnover || grandTotalNum)) || grandTotalNum;
   const totalTurnoverNum = parseFloat(String(bill.totalTurnover || (prevTurnoverNum + thisBillTurnoverNum))) || (prevTurnoverNum + thisBillTurnoverNum);
 
@@ -726,10 +726,12 @@ export const generateGstBillHtml = (bill: GstBillPrintData, copiesCount: number 
 
               <!-- Column 2: Delivery To Details -->
               <td style="width: 38%; border-right: 1.5px solid #000000; padding: 6px 8px; vertical-align: top; line-height: 1.35;">
-                <div style="font-weight: 600; margin-bottom: 2px;">Delivery To Details:</div>
-                ${deliveryDisplayName ? `<div style="font-weight: 700; font-size: 12px; margin-bottom: 2px;">${deliveryDisplayName}</div>` : ''}
-                ${deliveryAddressFormatted ? `<div style="margin-bottom: 2px;">${deliveryAddressFormatted}</div>` : ''}
-                ${deliveryAadharOrPan ? `<div style="margin-top: 4px; font-weight: 600;">AADHAR/PAN No : ${deliveryAadharOrPan}</div>` : ''}
+                ${(deliveryDisplayName || deliveryAddressFormatted || deliveryAadharOrPan) ? `
+                  <div style="font-weight: 600; margin-bottom: 2px;">Delivery To Details:</div>
+                  ${deliveryDisplayName ? `<div style="font-weight: 700; font-size: 12px; margin-bottom: 2px;">${deliveryDisplayName}</div>` : ''}
+                  ${deliveryAddressFormatted ? `<div style="margin-bottom: 2px;">${deliveryAddressFormatted}</div>` : ''}
+                  ${deliveryAadharOrPan ? `<div style="margin-top: 4px; font-weight: 600;">AADHAR/PAN No : ${deliveryAadharOrPan}</div>` : ''}
+                ` : ''}
               </td>
 
               <!-- Column 3: Tax Invoice, Bill No, Date -->
@@ -743,7 +745,7 @@ export const generateGstBillHtml = (bill: GstBillPrintData, copiesCount: number 
                     </tr>
                     <tr>
                       <td style="padding: 6px 8px; border-bottom: 1px solid #000000; font-size: 12px; font-weight: 700;">
-                        Bill No. &nbsp;: &nbsp;<strong>${bill.billNo || '1'}</strong>
+                        Bill No. &nbsp;: &nbsp;<strong>${bill.billNo || ''}</strong>
                       </td>
                     </tr>
                     <tr>

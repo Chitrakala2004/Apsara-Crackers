@@ -173,7 +173,7 @@ export const GstBillPrintTemplate: React.FC<GstBillPrintTemplateProps> = ({ bill
   const primaryUnit = products[0]?.unit || products[0]?.per || 'Case';
   const totalQuantityWithUnit = bill.caseCount !== undefined && bill.caseCount !== '' && bill.caseCount !== '0'
     ? `${bill.caseCount} Case`
-    : `${totalQtyComputed} ${primaryUnit}`;
+    : (totalQtyComputed > 0 ? `${totalQtyComputed} ${primaryUnit}` : '');
 
   // Customer Name formatting
   const rawCustName = (bill.customerName || '').trim();
@@ -188,24 +188,24 @@ export const GstBillPrintTemplate: React.FC<GstBillPrintTemplateProps> = ({ bill
   const customerAadharOrPan = (bill.customerAadhar || bill.customerPan || bill.customerGst || '').trim();
 
   // Delivery To Details
-  const rawDeliveryName = (bill.deliveryName || bill.customerName || '').trim();
+  const rawDeliveryName = (bill.deliveryName || '').trim();
   const deliveryDisplayName = rawDeliveryName ? (rawDeliveryName.toLowerCase().startsWith('m/s') ? rawDeliveryName : `M/s. ${rawDeliveryName}`) : '';
   const deliveryAddressFormatted = bill.deliveryAddress && bill.deliveryAddress !== 'N/A' && bill.deliveryAddress !== '-'
     ? bill.deliveryAddress
-    : customerAddressFormatted;
-  const deliveryAadharOrPan = (bill.deliveryAadhar || customerAadharOrPan || '').trim();
+    : '';
+  const deliveryAadharOrPan = (bill.deliveryAadhar || '').trim();
 
   // Despatch Details
-  const despatchFrom = bill.despatchFrom || 'SIVAKASI';
-  const despatchTo = bill.despatchTo || customerAddressFormatted || '';
+  const despatchFrom = bill.despatchFrom || '';
+  const despatchTo = bill.despatchTo || '';
   const transportName = (bill.transport && bill.transport !== '-' && bill.transport !== '0')
     ? bill.transport
     : '';
   const transportGstin = bill.transportGstin || '';
-  const hsnNo = bill.hsnNo || products[0]?.hsnCode || '3604';
+  const hsnNo = bill.hsnNo || products[0]?.hsnCode || '';
 
   // Sales Turnover
-  const prevTurnoverNum = parseFloat(String(bill.previousTurnover || 726900)) || 726900;
+  const prevTurnoverNum = parseFloat(String(bill.previousTurnover || 0)) || 0;
   const thisBillTurnoverNum = parseFloat(String(bill.thisBillTurnover || grandTotalNum)) || grandTotalNum;
   const totalTurnoverNum = parseFloat(String(bill.totalTurnover || (prevTurnoverNum + thisBillTurnoverNum))) || (prevTurnoverNum + thisBillTurnoverNum);
 
@@ -412,19 +412,23 @@ export const GstBillPrintTemplate: React.FC<GstBillPrintTemplateProps> = ({ bill
                   lineHeight: 1.35,
                 }}
               >
-                <div style={{ fontWeight: 600, marginBottom: '2px' }}>Delivery To Details:</div>
-                {deliveryDisplayName ? (
-                  <div style={{ fontWeight: 700, fontSize: '12px', marginBottom: '2px' }}>
-                    {deliveryDisplayName}
-                  </div>
-                ) : null}
-                {deliveryAddressFormatted ? (
-                  <div style={{ marginBottom: '2px' }}>{deliveryAddressFormatted}</div>
-                ) : null}
-                {deliveryAadharOrPan ? (
-                  <div style={{ marginTop: '4px', fontWeight: 600 }}>
-                    AADHAR/PAN No : {deliveryAadharOrPan}
-                  </div>
+                {(deliveryDisplayName || deliveryAddressFormatted || deliveryAadharOrPan) ? (
+                  <>
+                    <div style={{ fontWeight: 600, marginBottom: '2px' }}>Delivery To Details:</div>
+                    {deliveryDisplayName ? (
+                      <div style={{ fontWeight: 700, fontSize: '12px', marginBottom: '2px' }}>
+                        {deliveryDisplayName}
+                      </div>
+                    ) : null}
+                    {deliveryAddressFormatted ? (
+                      <div style={{ marginBottom: '2px' }}>{deliveryAddressFormatted}</div>
+                    ) : null}
+                    {deliveryAadharOrPan ? (
+                      <div style={{ marginTop: '4px', fontWeight: 600 }}>
+                        AADHAR/PAN No : {deliveryAadharOrPan}
+                      </div>
+                    ) : null}
+                  </>
                 ) : null}
               </td>
 
@@ -463,7 +467,7 @@ export const GstBillPrintTemplate: React.FC<GstBillPrintTemplateProps> = ({ bill
                           fontWeight: 700,
                         }}
                       >
-                        Bill No. &nbsp;: &nbsp;<strong>{bill.billNo || '1'}</strong>
+                        Bill No. &nbsp;: &nbsp;<strong>{bill.billNo || ''}</strong>
                       </td>
                     </tr>
                     <tr>
