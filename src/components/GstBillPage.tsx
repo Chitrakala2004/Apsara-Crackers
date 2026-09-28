@@ -542,14 +542,14 @@ export const GstBillPage: FC = () => {
     return {
       billNo,
       date: formatDisplayDate(billDate),
-      customerName: customerName || 'Shanmugam Azhakan',
+      customerName: customerName || '',
       customerPhone,
-      customerAddress: customerAddress || 'Urappakam',
+      customerAddress: customerAddress || '',
       customerGst: customerGst || '',
-      customerAadhar: customerAadhar || '623733930082',
-      deliveryName: isDelivSame ? customerName : (deliveryName || customerName),
-      deliveryAddress: isDelivSame ? customerAddress : (deliveryAddress || customerAddress),
-      deliveryAadhar: isDelivSame ? customerAadhar : (deliveryAadhar || customerAadhar),
+      customerAadhar: customerAadhar || '',
+      deliveryName: isDelivSame ? customerName : (deliveryName || customerName || ''),
+      deliveryAddress: isDelivSame ? customerAddress : (deliveryAddress || customerAddress || ''),
+      deliveryAadhar: isDelivSame ? customerAadhar : (deliveryAadhar || customerAadhar || ''),
       placeOfSupply,
       reverseCharge: 'No',
       vehicleNo: '',
@@ -557,7 +557,7 @@ export const GstBillPage: FC = () => {
       transport: transport || 'Palani murugan transport',
       transportGstin: transportGstin || '',
       despatchFrom: despatchFrom || 'SIVAKASI',
-      despatchTo: despatchTo || customerAddress || 'Urappakam',
+      despatchTo: despatchTo || customerAddress || '',
       caseCount: lineCalculations.totalCases,
       companyName: 'APSARA TRADERS',
       gstin: storeSettings.gstin || '33ABFFA6758B1ZP',
@@ -1215,7 +1215,7 @@ export const GstBillPage: FC = () => {
               >
                 <CheckCircleOutlineRoundedIcon sx={{ fontSize: 20, color: '#1D4ED8' }} />
                 <Typography sx={{ fontSize: '12.5px', fontWeight: 600, color: '#1E40AF' }}>
-                  Composition Scheme GST Bill (Section 10 of GST Act 2017) • Despatch From {despatchFrom} to {despatchTo || customerAddress || 'Urappakam'}
+                  Composition Scheme GST Bill (Section 10 of GST Act 2017) • Despatch From {despatchFrom} to {despatchTo || customerAddress || '-'}
                 </Typography>
               </Box>
             </Paper>
@@ -1278,7 +1278,7 @@ export const GstBillPage: FC = () => {
                       <TextField
                         fullWidth
                         size="small"
-                        placeholder="e.g. 623733930082"
+                        placeholder="Enter Aadhar or PAN (optional)"
                         value={customerAadhar}
                         onChange={(e) => setCustomerAadhar(e.target.value)}
                       />

@@ -176,31 +176,31 @@ export const GstBillPrintTemplate: React.FC<GstBillPrintTemplateProps> = ({ bill
     : `${totalQtyComputed} ${primaryUnit}`;
 
   // Customer Name formatting
-  const rawCustName = (bill.customerName || 'Shanmugam Azhakan').trim();
-  const customerDisplayName = rawCustName.toLowerCase().startsWith('m/s') ? rawCustName : `M/s. ${rawCustName}`;
+  const rawCustName = (bill.customerName || '').trim();
+  const customerDisplayName = rawCustName ? (rawCustName.toLowerCase().startsWith('m/s') ? rawCustName : `M/s. ${rawCustName}`) : '';
 
   // Customer Address
   const customerAddressFormatted = bill.customerAddress && bill.customerAddress !== 'N/A' && bill.customerAddress !== '-'
     ? bill.customerAddress
-    : 'Urappakam';
+    : '';
 
   // Customer Aadhar / PAN
-  const customerAadharOrPan = bill.customerAadhar || bill.customerPan || bill.customerGst || '623733930082';
+  const customerAadharOrPan = (bill.customerAadhar || bill.customerPan || bill.customerGst || '').trim();
 
   // Delivery To Details
-  const rawDeliveryName = (bill.deliveryName || bill.customerName || 'Shanmugam Azhakan').trim();
-  const deliveryDisplayName = rawDeliveryName.toLowerCase().startsWith('m/s') ? rawDeliveryName : `M/s. ${rawDeliveryName}`;
+  const rawDeliveryName = (bill.deliveryName || bill.customerName || '').trim();
+  const deliveryDisplayName = rawDeliveryName ? (rawDeliveryName.toLowerCase().startsWith('m/s') ? rawDeliveryName : `M/s. ${rawDeliveryName}`) : '';
   const deliveryAddressFormatted = bill.deliveryAddress && bill.deliveryAddress !== 'N/A' && bill.deliveryAddress !== '-'
     ? bill.deliveryAddress
     : customerAddressFormatted;
-  const deliveryAadharOrPan = bill.deliveryAadhar || customerAadharOrPan;
+  const deliveryAadharOrPan = (bill.deliveryAadhar || customerAadharOrPan || '').trim();
 
   // Despatch Details
   const despatchFrom = bill.despatchFrom || 'SIVAKASI';
-  const despatchTo = bill.despatchTo || customerAddressFormatted || 'Urappakam';
+  const despatchTo = bill.despatchTo || customerAddressFormatted || '';
   const transportName = (bill.transport && bill.transport !== '-' && bill.transport !== '0')
     ? bill.transport
-    : 'Palani murugan transport';
+    : '';
   const transportGstin = bill.transportGstin || '';
   const hsnNo = bill.hsnNo || products[0]?.hsnCode || '3604';
 
@@ -387,13 +387,19 @@ export const GstBillPrintTemplate: React.FC<GstBillPrintTemplateProps> = ({ bill
                 }}
               >
                 <div style={{ fontWeight: 700, marginBottom: '2px' }}>To :</div>
-                <div style={{ fontWeight: 700, fontSize: '12px', marginBottom: '2px' }}>
-                  {customerDisplayName}
-                </div>
-                <div style={{ marginBottom: '2px' }}>{customerAddressFormatted}</div>
-                <div style={{ marginTop: '4px', fontWeight: 600 }}>
-                  AADHAR/PAN No : {customerAadharOrPan}
-                </div>
+                {customerDisplayName ? (
+                  <div style={{ fontWeight: 700, fontSize: '12px', marginBottom: '2px' }}>
+                    {customerDisplayName}
+                  </div>
+                ) : null}
+                {customerAddressFormatted ? (
+                  <div style={{ marginBottom: '2px' }}>{customerAddressFormatted}</div>
+                ) : null}
+                {customerAadharOrPan ? (
+                  <div style={{ marginTop: '4px', fontWeight: 600 }}>
+                    AADHAR/PAN No : {customerAadharOrPan}
+                  </div>
+                ) : null}
               </td>
 
               {/* Column 2: Delivery To Details */}
@@ -407,13 +413,19 @@ export const GstBillPrintTemplate: React.FC<GstBillPrintTemplateProps> = ({ bill
                 }}
               >
                 <div style={{ fontWeight: 600, marginBottom: '2px' }}>Delivery To Details:</div>
-                <div style={{ fontWeight: 700, fontSize: '12px', marginBottom: '2px' }}>
-                  {deliveryDisplayName}
-                </div>
-                <div style={{ marginBottom: '2px' }}>{deliveryAddressFormatted}</div>
-                <div style={{ marginTop: '4px', fontWeight: 600 }}>
-                  AADHAR/PAN No : {deliveryAadharOrPan}
-                </div>
+                {deliveryDisplayName ? (
+                  <div style={{ fontWeight: 700, fontSize: '12px', marginBottom: '2px' }}>
+                    {deliveryDisplayName}
+                  </div>
+                ) : null}
+                {deliveryAddressFormatted ? (
+                  <div style={{ marginBottom: '2px' }}>{deliveryAddressFormatted}</div>
+                ) : null}
+                {deliveryAadharOrPan ? (
+                  <div style={{ marginTop: '4px', fontWeight: 600 }}>
+                    AADHAR/PAN No : {deliveryAadharOrPan}
+                  </div>
+                ) : null}
               </td>
 
               {/* Column 3: Tax Invoice, Bill No., Date */}

@@ -586,25 +586,25 @@ export const generateGstBillHtml = (bill: GstBillPrintData, copiesCount: number 
     ? `${bill.caseCount} Case`
     : `${totalQtyComputed} ${primaryUnit}`;
 
-  const rawCustName = (bill.customerName || 'Shanmugam Azhakan').trim();
-  const customerDisplayName = rawCustName.toLowerCase().startsWith('m/s') ? rawCustName : `M/s. ${rawCustName}`;
+  const rawCustName = (bill.customerName || '').trim();
+  const customerDisplayName = rawCustName ? (rawCustName.toLowerCase().startsWith('m/s') ? rawCustName : `M/s. ${rawCustName}`) : '';
   const customerAddressFormatted = bill.customerAddress && bill.customerAddress !== 'N/A' && bill.customerAddress !== '-'
     ? bill.customerAddress
-    : 'Urappakam';
-  const customerAadharOrPan = bill.customerAadhar || bill.customerPan || bill.customerGst || '623733930082';
+    : '';
+  const customerAadharOrPan = (bill.customerAadhar || bill.customerPan || bill.customerGst || '').trim();
 
-  const rawDeliveryName = (bill.deliveryName || bill.customerName || 'Shanmugam Azhakan').trim();
-  const deliveryDisplayName = rawDeliveryName.toLowerCase().startsWith('m/s') ? rawDeliveryName : `M/s. ${rawDeliveryName}`;
+  const rawDeliveryName = (bill.deliveryName || bill.customerName || '').trim();
+  const deliveryDisplayName = rawDeliveryName ? (rawDeliveryName.toLowerCase().startsWith('m/s') ? rawDeliveryName : `M/s. ${rawDeliveryName}`) : '';
   const deliveryAddressFormatted = bill.deliveryAddress && bill.deliveryAddress !== 'N/A' && bill.deliveryAddress !== '-'
     ? bill.deliveryAddress
     : customerAddressFormatted;
-  const deliveryAadharOrPan = bill.deliveryAadhar || customerAadharOrPan;
+  const deliveryAadharOrPan = (bill.deliveryAadhar || customerAadharOrPan || '').trim();
 
   const despatchFrom = bill.despatchFrom || 'SIVAKASI';
-  const despatchTo = bill.despatchTo || customerAddressFormatted || 'Urappakam';
+  const despatchTo = bill.despatchTo || customerAddressFormatted || '';
   const transportName = (bill.transport && bill.transport !== '-' && bill.transport !== '0')
     ? bill.transport
-    : 'Palani murugan transport';
+    : '';
   const transportGstin = bill.transportGstin || '';
   const hsnNo = bill.hsnNo || products[0]?.hsnCode || '3604';
 
@@ -719,25 +719,17 @@ export const generateGstBillHtml = (bill: GstBillPrintData, copiesCount: number 
               <!-- Column 1: To -->
               <td style="width: 38%; border-right: 1.5px solid #000000; padding: 6px 8px; vertical-align: top; line-height: 1.35;">
                 <div style="font-weight: 700; margin-bottom: 2px;">To :</div>
-                <div style="font-weight: 700; font-size: 12px; margin-bottom: 2px;">
-                  ${customerDisplayName}
-                </div>
-                <div style="margin-bottom: 2px;">${customerAddressFormatted}</div>
-                <div style="margin-top: 4px; font-weight: 600;">
-                  AADHAR/PAN No : ${customerAadharOrPan}
-                </div>
+                ${customerDisplayName ? `<div style="font-weight: 700; font-size: 12px; margin-bottom: 2px;">${customerDisplayName}</div>` : ''}
+                ${customerAddressFormatted ? `<div style="margin-bottom: 2px;">${customerAddressFormatted}</div>` : ''}
+                ${customerAadharOrPan ? `<div style="margin-top: 4px; font-weight: 600;">AADHAR/PAN No : ${customerAadharOrPan}</div>` : ''}
               </td>
 
               <!-- Column 2: Delivery To Details -->
               <td style="width: 38%; border-right: 1.5px solid #000000; padding: 6px 8px; vertical-align: top; line-height: 1.35;">
                 <div style="font-weight: 600; margin-bottom: 2px;">Delivery To Details:</div>
-                <div style="font-weight: 700; font-size: 12px; margin-bottom: 2px;">
-                  ${deliveryDisplayName}
-                </div>
-                <div style="margin-bottom: 2px;">${deliveryAddressFormatted}</div>
-                <div style="margin-top: 4px; font-weight: 600;">
-                  AADHAR/PAN No : ${deliveryAadharOrPan}
-                </div>
+                ${deliveryDisplayName ? `<div style="font-weight: 700; font-size: 12px; margin-bottom: 2px;">${deliveryDisplayName}</div>` : ''}
+                ${deliveryAddressFormatted ? `<div style="margin-bottom: 2px;">${deliveryAddressFormatted}</div>` : ''}
+                ${deliveryAadharOrPan ? `<div style="margin-top: 4px; font-weight: 600;">AADHAR/PAN No : ${deliveryAadharOrPan}</div>` : ''}
               </td>
 
               <!-- Column 3: Tax Invoice, Bill No, Date -->
