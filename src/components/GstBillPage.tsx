@@ -1383,6 +1383,21 @@ export const GstBillPage: FC = () => {
                     label="Qty"
                     value={quantity}
                     onChange={(e) => setQuantity(e.target.value)}
+                    slotProps={{
+                      htmlInput: {
+                        onWheel: (e: any) => (e.target as HTMLElement).blur(),
+                        step: 'any',
+                      },
+                    }}
+                    sx={{
+                      '& input::-webkit-outer-spin-button, & input::-webkit-inner-spin-button': {
+                        WebkitAppearance: 'none',
+                        margin: 0,
+                      },
+                      '& input[type=number]': {
+                        MozAppearance: 'textfield',
+                      },
+                    }}
                   />
                 </Grid>
 
@@ -1404,6 +1419,21 @@ export const GstBillPage: FC = () => {
                     label="Rate (₹)"
                     value={rate}
                     onChange={(e) => setRate(e.target.value)}
+                    slotProps={{
+                      htmlInput: {
+                        onWheel: (e: any) => (e.target as HTMLElement).blur(),
+                        step: 'any',
+                      },
+                    }}
+                    sx={{
+                      '& input::-webkit-outer-spin-button, & input::-webkit-inner-spin-button': {
+                        WebkitAppearance: 'none',
+                        margin: 0,
+                      },
+                      '& input[type=number]': {
+                        MozAppearance: 'textfield',
+                      },
+                    }}
                   />
                 </Grid>
 
@@ -1481,6 +1511,7 @@ export const GstBillPage: FC = () => {
                                 slotProps={{
                                   htmlInput: {
                                     min: 1,
+                                    onWheel: (e: any) => (e.target as HTMLElement).blur(),
                                     style: { textAlign: 'center', fontWeight: 700, padding: '3px 4px', fontSize: '13px' },
                                   },
                                 }}
@@ -1488,6 +1519,13 @@ export const GstBillPage: FC = () => {
                                   width: '52px',
                                   backgroundColor: '#FFFFFF',
                                   borderRadius: '6px',
+                                  '& input::-webkit-outer-spin-button, & input::-webkit-inner-spin-button': {
+                                    WebkitAppearance: 'none',
+                                    margin: 0,
+                                  },
+                                  '& input[type=number]': {
+                                    MozAppearance: 'textfield',
+                                  },
                                   '& .MuiOutlinedInput-notchedOutline': { borderColor: '#CBD5E1' },
                                   '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#DC2626' },
                                   '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#DC2626' },
@@ -1521,6 +1559,7 @@ export const GstBillPage: FC = () => {
                               slotProps={{
                                 htmlInput: {
                                   min: 0,
+                                  onWheel: (e: any) => (e.target as HTMLElement).blur(),
                                   style: { textAlign: 'right', fontWeight: 700, padding: '3px 6px', fontSize: '13px', color: '#475569' },
                                 },
                               }}
@@ -1528,6 +1567,13 @@ export const GstBillPage: FC = () => {
                                 width: '80px',
                                 backgroundColor: '#FFFFFF',
                                 borderRadius: '6px',
+                                '& input::-webkit-outer-spin-button, & input::-webkit-inner-spin-button': {
+                                  WebkitAppearance: 'none',
+                                  margin: 0,
+                                },
+                                '& input[type=number]': {
+                                  MozAppearance: 'textfield',
+                                },
                                 '& .MuiOutlinedInput-notchedOutline': { borderColor: '#CBD5E1' },
                                 '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#DC2626' },
                                 '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#DC2626' },

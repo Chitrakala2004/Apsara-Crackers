@@ -618,7 +618,8 @@ export const generateGstBillHtml = (bill: GstBillPrintData, copiesCount: number 
     .replace(/\s*Only\s*/i, '')
     .trim();
 
-  const spacerMinHeight = Math.max(30, 260 - products.length * 24);
+  // Dynamic spacer height to keep table lines running down continuously while filling the full A4 page
+  const spacerMinHeight = Math.max(80, 520 - products.length * 26);
 
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
   const ganeshaImgUrl = `${origin}/ganesha.jpg`;
@@ -970,7 +971,7 @@ export const generateGstBillHtml = (bill: GstBillPrintData, copiesCount: number 
   <style>
     @page {
       size: A4 portrait;
-      margin: 6mm 8mm;
+      margin: 5mm 6mm;
     }
     *, *:before, *:after {
       box-sizing: border-box;
@@ -993,10 +994,13 @@ export const generateGstBillHtml = (bill: GstBillPrintData, copiesCount: number 
     }
     .bill-page-wrapper {
       width: 100%;
+      min-height: 280mm;
       max-width: 100%;
       margin: 0 auto;
       padding: 0;
       box-sizing: border-box;
+      display: flex;
+      flex-direction: column;
       page-break-inside: avoid !important;
       break-inside: avoid !important;
     }
@@ -1005,6 +1009,10 @@ export const generateGstBillHtml = (bill: GstBillPrintData, copiesCount: number 
       box-sizing: border-box;
       background-color: #ffffff;
       width: 100%;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
       page-break-inside: avoid !important;
       break-inside: avoid !important;
     }

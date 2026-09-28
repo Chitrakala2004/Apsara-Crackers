@@ -218,8 +218,8 @@ export const GstBillPrintTemplate: React.FC<GstBillPrintTemplateProps> = ({ bill
     .replace(/\s*Only\s*/i, '')
     .trim();
 
-  // Dynamic spacer height to keep table lines running down continuously while fitting on single A4 sheet
-  const spacerMinHeight = Math.max(30, 260 - products.length * 24);
+  // Dynamic spacer height to keep table lines running down continuously while filling the full A4 page
+  const spacerMinHeight = Math.max(80, 520 - products.length * 26);
 
   const displayCopy = copyLabel || bill.invoiceCopy || 'ORIGINAL';
 
@@ -229,13 +229,16 @@ export const GstBillPrintTemplate: React.FC<GstBillPrintTemplateProps> = ({ bill
       style={{
         width: '100%',
         maxWidth: '820px',
+        minHeight: '280mm',
         margin: '0 auto',
         backgroundColor: '#FFFFFF',
         color: '#000000',
         fontFamily: 'Arial, "Helvetica Neue", Helvetica, sans-serif',
         boxSizing: 'border-box',
-        padding: '8px 12px',
+        padding: '4px 6px',
         fontSize: '11.5px',
+        display: 'flex',
+        flexDirection: 'column',
       }}
     >
       {/* Top Copy Indicator (e.g. ORIGINAL) */}
@@ -262,10 +265,15 @@ export const GstBillPrintTemplate: React.FC<GstBillPrintTemplateProps> = ({ bill
 
       {/* Main Bordered Bill Container */}
       <div
+        className="bill-box"
         style={{
           border: '1.5px solid #000000',
           boxSizing: 'border-box',
           backgroundColor: '#FFFFFF',
+          flex: 1,
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'space-between',
         }}
       >
         {/* Top GSTIN Line */}

@@ -88,7 +88,7 @@ export const GstBillPrintModal: React.FC<GstBillPrintModalProps> = ({ open, onCl
             }
             @page {
               size: A4 portrait;
-              margin: 6mm 8mm;
+              margin: 5mm 6mm;
             }
           }
         `}
