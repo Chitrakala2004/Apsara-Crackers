@@ -10,8 +10,12 @@ import {
 } from '@mui/material';
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
 import PrintOutlinedIcon from '@mui/icons-material/PrintOutlined';
+import WhatsAppIcon from '@mui/icons-material/WhatsApp';
+import PictureAsPdfRoundedIcon from '@mui/icons-material/PictureAsPdfRounded';
+import CircularProgress from '@mui/material/CircularProgress';
 import { BillPrintTemplate, type BillPrintData } from './BillPrintTemplate';
 import { printBillDirectly } from '../utils/printUtils';
+import { shareBillViaWhatsApp, downloadBillAsPdf } from '../utils/pdfShareUtils';
 
 interface BillPrintModalProps {
   open: boolean;
@@ -22,8 +26,54 @@ interface BillPrintModalProps {
 export const BillPrintModal: React.FC<BillPrintModalProps> = ({ open, onClose, bill }) => {
   if (!bill) return null;
 
+  const printAreaRef = React.useRef<HTMLDivElement>(null);
+  const [sharing, setSharing] = React.useState<boolean>(false);
+  const [downloading, setDownloading] = React.useState<boolean>(false);
+
   const handleTriggerPrint = () => {
     printBillDirectly(bill);
+  };
+
+  const handleShareWhatsApp = async () => {
+    if (!printAreaRef.current) return;
+    setSharing(true);
+    try {
+      await shareBillViaWhatsApp(printAreaRef.current, {
+        billNo: bill.billNo,
+        customerName: bill.customerName,
+        customerPhone: bill.customerPhone,
+        totalAmount: bill.total || bill.amount || 0,
+        date: bill.date,
+        companyName: bill.companyName || 'APSARA CRACKERS',
+        isGst: false,
+      });
+    } catch (err) {
+      console.error('Failed to share PDF:', err);
+      alert('Failed to generate PDF. Please try again.');
+    } finally {
+      setSharing(false);
+    }
+  };
+
+  const handleDownloadPdf = async () => {
+    if (!printAreaRef.current) return;
+    setDownloading(true);
+    try {
+      await downloadBillAsPdf(printAreaRef.current, {
+        billNo: bill.billNo,
+        customerName: bill.customerName,
+        customerPhone: bill.customerPhone,
+        totalAmount: bill.total || bill.amount || 0,
+        date: bill.date,
+        companyName: bill.companyName || 'APSARA CRACKERS',
+        isGst: false,
+      });
+    } catch (err) {
+      console.error('Failed to download PDF:', err);
+      alert('Failed to download PDF. Please try again.');
+    } finally {
+      setDownloading(false);
+    }
   };
 
   return (
@@ -139,6 +189,7 @@ export const BillPrintModal: React.FC<BillPrintModalProps> = ({ open, onClose, b
           }}
         >
           <Box
+            ref={printAreaRef}
             className="apsara-printable-section"
             sx={{
               backgroundColor: '#FFFFFF',
@@ -157,49 +208,100 @@ export const BillPrintModal: React.FC<BillPrintModalProps> = ({ open, onClose, b
         <DialogActions
           className="apsara-no-print"
           sx={{
-            px: 3,
-            py: 1.5,
+            px: { xs: 2, sm: 3 },
+            py: 2,
             backgroundColor: '#FFFFFF',
             borderTop: '1px solid #E2E8F0',
             display: 'flex',
+            flexDirection: { xs: 'column-reverse', sm: 'row' },
             justifyContent: 'space-between',
+            alignItems: { xs: 'stretch', sm: 'center' },
+            gap: 1.5,
           }}
         >
           <Button
             onClick={onClose}
+            variant="outlined"
             sx={{
               color: '#475569',
-              fontSize: '13px',
-              fontWeight: 600,
-              textTransform: 'none',
-              '&:hover': { backgroundColor: '#F8FAFC' },
+              borderColor: '#CBD5E1',
+              py: 1,
+              '&:hover': { borderColor: '#94A3B8', backgroundColor: '#F8FAFC' },
             }}
           >
-            Close
+            Close Preview
           </Button>
 
-          <Button
-            variant="contained"
-            disableElevation
-            onClick={handleTriggerPrint}
-            startIcon={<PrintOutlinedIcon sx={{ fontSize: '18px !important' }} />}
+          <Box
             sx={{
-              background: 'linear-gradient(135deg, #DC2626 0%, #B91C1C 100%)',
-              color: '#FFFFFF',
-              fontSize: '13px',
-              fontWeight: 700,
-              textTransform: 'none',
-              px: 3,
-              py: 0.8,
-              borderRadius: '6px',
-              boxShadow: '0 2px 8px rgba(220, 38, 38, 0.3)',
-              '&:hover': {
-                background: 'linear-gradient(135deg, #B91C1C 0%, #991B1B 100%)',
-              },
+              display: 'flex',
+              flexDirection: { xs: 'column', sm: 'row' },
+              gap: 1.2,
+              alignItems: 'center',
+              width: { xs: '100%', sm: 'auto' },
             }}
           >
-            Print
-          </Button>
+            <Button
+              onClick={handleDownloadPdf}
+              variant="outlined"
+              disabled={downloading || sharing}
+              startIcon={downloading ? <CircularProgress size={16} color="inherit" /> : <PictureAsPdfRoundedIcon />}
+              sx={{
+                color: '#DC2626',
+                borderColor: '#FCA5A5',
+                px: 2,
+                py: 1,
+                fontWeight: 700,
+                width: { xs: '100%', sm: 'auto' },
+                '&:hover': { backgroundColor: '#FEF2F2', borderColor: '#DC2626' },
+              }}
+            >
+              {downloading ? 'Creating PDF...' : 'Download PDF'}
+            </Button>
+
+            <Button
+              onClick={handleShareWhatsApp}
+              variant="contained"
+              disabled={sharing || downloading}
+              startIcon={sharing ? <CircularProgress size={16} sx={{ color: '#FFFFFF' }} /> : <WhatsAppIcon />}
+              sx={{
+                backgroundColor: '#16A34A',
+                color: '#FFFFFF',
+                px: 2.5,
+                py: 1.1,
+                fontWeight: 800,
+                boxShadow: '0 4px 12px rgba(22, 163, 74, 0.3)',
+                width: { xs: '100%', sm: 'auto' },
+                '&:hover': { backgroundColor: '#15803D' },
+              }}
+            >
+              {sharing ? 'Generating PDF...' : 'Share on WhatsApp (PDF)'}
+            </Button>
+
+            <Button
+              variant="contained"
+              disableElevation
+              onClick={handleTriggerPrint}
+              startIcon={<PrintOutlinedIcon sx={{ fontSize: '18px !important' }} />}
+              sx={{
+                background: 'linear-gradient(135deg, #DC2626 0%, #B91C1C 100%)',
+                color: '#FFFFFF',
+                fontSize: '13px',
+                fontWeight: 700,
+                textTransform: 'none',
+                px: 2.5,
+                py: 1.1,
+                borderRadius: '6px',
+                boxShadow: '0 2px 8px rgba(220, 38, 38, 0.3)',
+                width: { xs: '100%', sm: 'auto' },
+                '&:hover': {
+                  background: 'linear-gradient(135deg, #B91C1C 0%, #991B1B 100%)',
+                },
+              }}
+            >
+              Print
+            </Button>
+          </Box>
         </DialogActions>
       </Dialog>
     </>

@@ -12,8 +12,12 @@ import {
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
 import PrintOutlinedIcon from '@mui/icons-material/PrintOutlined';
 import LayersOutlinedIcon from '@mui/icons-material/LayersOutlined';
+import WhatsAppIcon from '@mui/icons-material/WhatsApp';
+import PictureAsPdfRoundedIcon from '@mui/icons-material/PictureAsPdfRounded';
+import CircularProgress from '@mui/material/CircularProgress';
 import { GstBillPrintTemplate, type GstBillPrintData } from './GstBillPrintTemplate';
 import { printGstBillDirectly } from '../utils/printUtils';
+import { shareBillViaWhatsApp, downloadBillAsPdf } from '../utils/pdfShareUtils';
 
 interface GstBillPrintModalProps {
   open: boolean;
@@ -24,8 +28,54 @@ interface GstBillPrintModalProps {
 export const GstBillPrintModal: React.FC<GstBillPrintModalProps> = ({ open, onClose, bill }) => {
   if (!bill) return null;
 
+  const printAreaRef = React.useRef<HTMLDivElement>(null);
+  const [sharing, setSharing] = React.useState<boolean>(false);
+  const [downloading, setDownloading] = React.useState<boolean>(false);
+
   const handlePrint = () => {
     printGstBillDirectly(bill);
+  };
+
+  const handleShareWhatsApp = async () => {
+    if (!printAreaRef.current) return;
+    setSharing(true);
+    try {
+      await shareBillViaWhatsApp(printAreaRef.current, {
+        billNo: bill.billNo,
+        customerName: bill.customerName,
+        customerPhone: bill.customerPhone,
+        totalAmount: bill.total || bill.subtotal || 0,
+        date: bill.date,
+        companyName: bill.companyName || 'APSARA TRADERS',
+        isGst: true,
+      });
+    } catch (err) {
+      console.error('Failed to share PDF:', err);
+      alert('Failed to generate PDF. Please try again.');
+    } finally {
+      setSharing(false);
+    }
+  };
+
+  const handleDownloadPdf = async () => {
+    if (!printAreaRef.current) return;
+    setDownloading(true);
+    try {
+      await downloadBillAsPdf(printAreaRef.current, {
+        billNo: bill.billNo,
+        customerName: bill.customerName,
+        customerPhone: bill.customerPhone,
+        totalAmount: bill.total || bill.subtotal || 0,
+        date: bill.date,
+        companyName: bill.companyName || 'APSARA TRADERS',
+        isGst: true,
+      });
+    } catch (err) {
+      console.error('Failed to download PDF:', err);
+      alert('Failed to download PDF. Please try again.');
+    } finally {
+      setDownloading(false);
+    }
   };
 
   return (
@@ -216,7 +266,7 @@ export const GstBillPrintModal: React.FC<GstBillPrintModalProps> = ({ open, onCl
             WebkitOverflowScrolling: 'touch',
           }}
         >
-          <Box className="gst-printable-area">
+          <Box ref={printAreaRef} className="gst-printable-area">
             {/* Single Copy: ORIGINAL */}
             <Box className="gst-print-copy">
               <GstBillPrintTemplate bill={bill} copyLabel="ORIGINAL" />
@@ -252,21 +302,69 @@ export const GstBillPrintModal: React.FC<GstBillPrintModalProps> = ({ open, onCl
             Close Preview
           </Button>
 
-          <Button
-            onClick={handlePrint}
-            variant="contained"
-            startIcon={<PrintOutlinedIcon />}
+          <Box
             sx={{
-              backgroundColor: '#DC2626',
-              px: 3,
-              py: 1.1,
-              fontWeight: 800,
-              boxShadow: '0 4px 12px rgba(220, 38, 38, 0.3)',
-              '&:hover': { backgroundColor: '#B91C1C' },
+              display: 'flex',
+              flexDirection: { xs: 'column', sm: 'row' },
+              gap: 1.2,
+              alignItems: 'center',
+              width: { xs: '100%', sm: 'auto' },
             }}
           >
-            Print Tax Invoice (ORIGINAL)
-          </Button>
+            <Button
+              onClick={handleDownloadPdf}
+              variant="outlined"
+              disabled={downloading || sharing}
+              startIcon={downloading ? <CircularProgress size={16} color="inherit" /> : <PictureAsPdfRoundedIcon />}
+              sx={{
+                color: '#DC2626',
+                borderColor: '#FCA5A5',
+                px: 2,
+                py: 1,
+                fontWeight: 700,
+                width: { xs: '100%', sm: 'auto' },
+                '&:hover': { backgroundColor: '#FEF2F2', borderColor: '#DC2626' },
+              }}
+            >
+              {downloading ? 'Creating PDF...' : 'Download PDF'}
+            </Button>
+
+            <Button
+              onClick={handleShareWhatsApp}
+              variant="contained"
+              disabled={sharing || downloading}
+              startIcon={sharing ? <CircularProgress size={16} sx={{ color: '#FFFFFF' }} /> : <WhatsAppIcon />}
+              sx={{
+                backgroundColor: '#16A34A',
+                color: '#FFFFFF',
+                px: 2.5,
+                py: 1.1,
+                fontWeight: 800,
+                boxShadow: '0 4px 12px rgba(22, 163, 74, 0.3)',
+                width: { xs: '100%', sm: 'auto' },
+                '&:hover': { backgroundColor: '#15803D' },
+              }}
+            >
+              {sharing ? 'Generating PDF...' : 'Share on WhatsApp (PDF)'}
+            </Button>
+
+            <Button
+              onClick={handlePrint}
+              variant="contained"
+              startIcon={<PrintOutlinedIcon />}
+              sx={{
+                backgroundColor: '#DC2626',
+                px: 2.5,
+                py: 1.1,
+                fontWeight: 800,
+                boxShadow: '0 4px 12px rgba(220, 38, 38, 0.3)',
+                width: { xs: '100%', sm: 'auto' },
+                '&:hover': { backgroundColor: '#B91C1C' },
+              }}
+            >
+              Print Tax Invoice
+            </Button>
+          </Box>
         </DialogActions>
       </Dialog>
     </>

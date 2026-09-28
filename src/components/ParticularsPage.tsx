@@ -25,6 +25,7 @@ import PrintOutlinedIcon from '@mui/icons-material/PrintOutlined';
 import ClearRoundedIcon from '@mui/icons-material/ClearRounded';
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
 import RotateLeftRoundedIcon from '@mui/icons-material/RotateLeftRounded';
+import WhatsAppIcon from '@mui/icons-material/WhatsApp';
 import {
   CustomersApi,
   CompaniesApi,
@@ -982,6 +983,27 @@ export const ParticularsPage: FC<ParticularsPageProps> = ({ initialCustomerName,
                     {isEditMode ? 'Update & Print' : 'Save & Print'}
                   </Button>
                 </Box>
+
+                <Button
+                  fullWidth
+                  variant="contained"
+                  disableElevation
+                  onClick={() => handleSaveBill(true)}
+                  disabled={savingBill || productRows.length === 0}
+                  startIcon={savingBill ? <CircularProgress size={16} color="inherit" /> : <WhatsAppIcon />}
+                  sx={{
+                    backgroundColor: '#16A34A',
+                    color: '#FFFFFF',
+                    fontWeight: 800,
+                    textTransform: 'none',
+                    py: 1,
+                    borderRadius: '8px',
+                    boxShadow: '0 2px 8px rgba(22, 163, 74, 0.3)',
+                    '&:hover': { backgroundColor: '#15803D' },
+                  }}
+                >
+                  {isEditMode ? 'Update & Share (WhatsApp)' : 'Save & Share (WhatsApp PDF)'}
+                </Button>
 
                 {(productRows.length > 0 || customerName.trim() !== '') && (
                   <Button

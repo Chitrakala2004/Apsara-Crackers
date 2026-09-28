@@ -36,6 +36,7 @@ import AccountBalanceOutlinedIcon from '@mui/icons-material/AccountBalanceOutlin
 import TrendingUpRoundedIcon from '@mui/icons-material/TrendingUpRounded';
 import SaveRoundedIcon from '@mui/icons-material/SaveRounded';
 import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
+import WhatsAppIcon from '@mui/icons-material/WhatsApp';
 
 import {
   CustomersApi,
@@ -1814,6 +1815,24 @@ export const GstBillPage: FC = () => {
 
                 <Button
                   fullWidth
+                  variant="contained"
+                  disabled={savingBill}
+                  onClick={() => handleSaveGstBill(true)}
+                  startIcon={savingBill ? <CircularProgress size={18} color="inherit" /> : <WhatsAppIcon />}
+                  sx={{
+                    backgroundColor: '#16A34A',
+                    py: 1.2,
+                    fontWeight: 800,
+                    fontSize: '14px',
+                    boxShadow: '0 2px 8px rgba(22, 163, 74, 0.25)',
+                    '&:hover': { backgroundColor: '#15803D' },
+                  }}
+                >
+                  Save & Share (WhatsApp PDF)
+                </Button>
+
+                <Button
+                  fullWidth
                   variant="outlined"
                   disabled={savingBill}
                   onClick={() => handleSaveGstBill(false)}
@@ -1991,6 +2010,18 @@ export const GstBillPage: FC = () => {
                           </TableCell>
                           <TableCell sx={{ textAlign: 'center' }}>
                             <Box sx={{ display: 'flex', justifyContent: 'center', gap: 0.5 }}>
+                              <Tooltip title="Share on WhatsApp (PDF)">
+                                <IconButton
+                                  size="small"
+                                  onClick={() => {
+                                    setSelectedBillForPrint(bill);
+                                    setPrintModalOpen(true);
+                                  }}
+                                  sx={{ color: '#16A34A', '&:hover': { backgroundColor: '#F0FDF4' } }}
+                                >
+                                  <WhatsAppIcon sx={{ fontSize: 18 }} />
+                                </IconButton>
+                              </Tooltip>
                               <Tooltip title="Print Tax Invoice">
                                 <IconButton
                                   size="small"
