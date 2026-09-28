@@ -18,11 +18,11 @@ import {
   Grid,
   Divider,
   Chip,
-  MenuItem,
-  Select,
-  FormControl,
-  InputLabel,
   InputAdornment,
+  Checkbox,
+  FormControlLabel,
+  Snackbar,
+  Alert,
 } from '@mui/material';
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
@@ -34,12 +34,16 @@ import FileDownloadOutlinedIcon from '@mui/icons-material/FileDownloadOutlined';
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded';
 import CheckCircleOutlineRoundedIcon from '@mui/icons-material/CheckCircleOutlineRounded';
 import AccountBalanceOutlinedIcon from '@mui/icons-material/AccountBalanceOutlined';
+import TrendingUpRoundedIcon from '@mui/icons-material/TrendingUpRounded';
+import SaveRoundedIcon from '@mui/icons-material/SaveRounded';
+import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
 
 import {
   CustomersApi,
   ProductsApi,
   PriceListsApi,
   ParticularsApi,
+  SettingsApi,
 } from '../services/api';
 import { getStoredSettings } from './SettingsPage';
 import { GstBillPrintModal } from './GstBillPrintModal';
@@ -102,15 +106,34 @@ export const GstBillPage: FC = () => {
   const [customerGst, setCustomerGst] = useState<string>('');
   const [customerAadhar, setCustomerAadhar] = useState<string>('');
   const [placeOfSupply, setPlaceOfSupply] = useState<string>('Tamil Nadu (33)');
-  const [overallDiscount, setOverallDiscount] = useState<string>('0');
-  const [overallGstRate, setOverallGstRate] = useState<string>('18');
 
   // Product Row Input State
   const [selectedProduct, setSelectedProduct] = useState<string>('');
   const [hsnCode, setHsnCode] = useState<string>('3604');
   const [quantity, setQuantity] = useState<string>('1');
-  const [unit, setUnit] = useState<string>('Box');
+  const [unit, setUnit] = useState<string>('Case');
   const [rate, setRate] = useState<string>('0');
+
+  // Additional Invoice Fields
+  const [despatchFrom, setDespatchFrom] = useState<string>('SIVAKASI');
+  const [despatchTo, setDespatchTo] = useState<string>('');
+  const [transport, setTransport] = useState<string>('Palani murugan transport');
+  const [transportGstin, setTransportGstin] = useState<string>('');
+  const [deliverySameAsBilling, setDeliverySameAsBilling] = useState<boolean>(true);
+  const [deliveryName, setDeliveryName] = useState<string>('');
+  const [deliveryAddress, setDeliveryAddress] = useState<string>('');
+  const [deliveryAadhar, setDeliveryAadhar] = useState<string>('');
+  const [discountPercent, setDiscountPercent] = useState<string>('0.00');
+  const [packingPercent, setPackingPercent] = useState<string>('0.00');
+  // Sales Turnover Tracking (Persistent baseline across bills)
+  const [currentTurnover, setCurrentTurnover] = useState<string>(() => {
+    return localStorage.getItem('apsara_gst_turnover_current') || storeSettings.gstTurnoverCurrent || '726900.00';
+  });
+  const [topTurnoverInput, setTopTurnoverInput] = useState<string>(() => {
+    return localStorage.getItem('apsara_gst_turnover_current') || storeSettings.gstTurnoverCurrent || '726900.00';
+  });
+  const [turnoverSnackbar, setTurnoverSnackbar] = useState<string>('');
+  const [hsnNo, setHsnNo] = useState<string>('3604');
 
   // Line items list
   const [productRows, setProductRows] = useState<GstProductItem[]>([]);
@@ -125,22 +148,17 @@ export const GstBillPage: FC = () => {
   const [historySearchTerm, setHistorySearchTerm] = useState<string>('');
   const [loadingHistory, setLoadingHistory] = useState<boolean>(false);
 
-  // Inter-state check (Tamil Nadu vs Destination)
-  const isInterState = useMemo(() => {
-    const suppState = (storeSettings.state || 'Tamil Nadu').toLowerCase();
-    const pos = placeOfSupply.toLowerCase();
-    return !pos.includes(suppState) && !pos.includes('33');
-  }, [placeOfSupply, storeSettings.state]);
-
-  // Calculations for all rows & whole bill GST calculation
+  // Calculations for all rows & whole bill
   const lineCalculations = useMemo(() => {
     let taxableTotal = 0;
+    let totalCases = 0;
 
     const computedRows = productRows.map((item) => {
       const q = parseFloat(String(item.quantity)) || 0;
       const r = parseFloat(String(item.rate)) || 0;
       const rowAmt = q * r;
       taxableTotal += rowAmt;
+      totalCases += q;
 
       return {
         ...item,
@@ -148,42 +166,39 @@ export const GstBillPage: FC = () => {
         rate: r,
         amount: rowAmt.toFixed(2),
         taxableAmount: rowAmt.toFixed(2),
+        unit: item.unit || 'Case',
+        per: item.per || item.unit || 'Case',
       };
     });
 
-    const gRate = parseFloat(overallGstRate) || 0;
-    const totalGstAmount = (taxableTotal * gRate) / 100;
+    const discPct = parseFloat(discountPercent) || 0;
+    const discountAmount = (taxableTotal * discPct) / 100;
 
-    let cgstTotal = 0;
-    let sgstTotal = 0;
-    let igstTotal = 0;
+    const packPct = parseFloat(packingPercent) || 0;
+    const packingAmount = (taxableTotal * packPct) / 100;
 
-    if (!isInterState) {
-      cgstTotal = totalGstAmount / 2;
-      sgstTotal = totalGstAmount / 2;
-    } else {
-      igstTotal = totalGstAmount;
-    }
+    const valueOfGoods = Math.max(0, taxableTotal - discountAmount + packingAmount);
+    const roundedGrand = Math.round(valueOfGoods);
+    const roundOffDiff = (roundedGrand - valueOfGoods).toFixed(2);
 
-    const discOverall = parseFloat(overallDiscount) || 0;
-
-    const unroundedGrand = Math.max(0, taxableTotal + totalGstAmount - discOverall);
-    const roundedGrand = Math.round(unroundedGrand);
-    const roundOffDiff = (roundedGrand - unroundedGrand).toFixed(2);
+    const prevTurnoverNum = parseFloat(currentTurnover) || 726900;
+    const totalTurnover = (prevTurnoverNum + roundedGrand).toFixed(2);
 
     return {
       computedRows,
       taxableTotal: taxableTotal.toFixed(2),
-      cgstTotal: cgstTotal.toFixed(2),
-      sgstTotal: sgstTotal.toFixed(2),
-      igstTotal: igstTotal.toFixed(2),
-      totalGstAmount: totalGstAmount.toFixed(2),
-      subtotal: taxableTotal.toFixed(2),
+      discountAmount: discountAmount.toFixed(2),
+      packingAmount: packingAmount.toFixed(2),
+      valueOfGoods: valueOfGoods.toFixed(2),
       roundOff: roundOffDiff,
       grandTotal: roundedGrand.toFixed(2),
       grandTotalNum: roundedGrand,
+      totalCases: `${totalCases} ${productRows[0]?.unit || 'Case'}`,
+      previousTurnover: prevTurnoverNum.toFixed(2),
+      thisBillTurnover: roundedGrand.toFixed(2),
+      totalTurnover,
     };
-  }, [productRows, overallGstRate, isInterState, overallDiscount]);
+  }, [productRows, discountPercent, packingPercent, currentTurnover]);
 
   // Load Dropdown Options
   const loadOptions = async () => {
@@ -247,13 +262,21 @@ export const GstBillPage: FC = () => {
     setCustomerAddress('');
     setCustomerGst('');
     setCustomerAadhar('');
+    setDespatchFrom('SIVAKASI');
+    setDespatchTo('');
+    setTransport('Palani murugan transport');
+    setTransportGstin('');
+    setDeliverySameAsBilling(true);
+    setDeliveryName('');
+    setDeliveryAddress('');
+    setDeliveryAadhar('');
+    setDiscountPercent('0.00');
+    setPackingPercent('0.00');
     setPlaceOfSupply('Tamil Nadu (33)');
-    setOverallDiscount('0');
-    setOverallGstRate('18');
     setSelectedProduct('');
     setHsnCode('3604');
     setQuantity('1');
-    setUnit('Box');
+    setUnit('Case');
     setRate('0');
     setProductRows([]);
     setBillDate(getTodayDateString());
@@ -300,6 +323,26 @@ export const GstBillPage: FC = () => {
     }
   };
 
+  // Save Baseline Sales Turnover from Top Bar
+  const handleSaveTurnoverBaseline = async () => {
+    const val = parseFloat(topTurnoverInput.replace(/,/g, ''));
+    if (isNaN(val) || val < 0) {
+      alert('Please enter a valid turnover amount');
+      return;
+    }
+    const formatted = val.toFixed(2);
+    setCurrentTurnover(formatted);
+    setTopTurnoverInput(formatted);
+    localStorage.setItem('apsara_gst_turnover_current', formatted);
+    localStorage.setItem('apsara_gst_turnover_baseline', formatted);
+    try {
+      await SettingsApi.update({ ...storeSettings, gstTurnoverCurrent: formatted, gstTurnoverBaseline: formatted });
+    } catch (e) {
+      console.warn('Could not sync turnover with server:', e);
+    }
+    setTurnoverSnackbar(`Sales Turnover baseline saved: ₹${val.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`);
+  };
+
   useEffect(() => {
     loadOptions();
     fetchNextGstBillNo();
@@ -309,7 +352,12 @@ export const GstBillPage: FC = () => {
   // Listen for settings update
   useEffect(() => {
     const handleSettingsUpdate = () => {
-      setStoreSettings(getStoredSettings());
+      const s = getStoredSettings();
+      setStoreSettings(s);
+      if (s.gstTurnoverCurrent && !localStorage.getItem('apsara_gst_turnover_current')) {
+        setCurrentTurnover(s.gstTurnoverCurrent);
+        setTopTurnoverInput(s.gstTurnoverCurrent);
+      }
     };
     window.addEventListener('apsara_settings_updated', handleSettingsUpdate);
     return () => window.removeEventListener('apsara_settings_updated', handleSettingsUpdate);
@@ -327,6 +375,10 @@ export const GstBillPage: FC = () => {
         setCustomerPhone(matched.mobile || '');
         setCustomerAddress(matched.address || '');
         setCustomerAadhar(matched.aadhar || '');
+        setDespatchTo(matched.address || '');
+        setDeliveryName(matched.name);
+        setDeliveryAddress(matched.address || '');
+        setDeliveryAadhar(matched.aadhar || '');
         if (matched.gst) {
           setCustomerGst(matched.gst);
           const stateCode = matched.gst.slice(0, 2);
@@ -348,6 +400,10 @@ export const GstBillPage: FC = () => {
       setCustomerPhone(value.mobile || '');
       setCustomerAddress(value.address || '');
       setCustomerAadhar(value.aadhar || '');
+      setDespatchTo(value.address || '');
+      setDeliveryName(value.name);
+      setDeliveryAddress(value.address || '');
+      setDeliveryAadhar(value.aadhar || '');
       if (value.gst) {
         setCustomerGst(value.gst);
         const stateCode = value.gst.slice(0, 2);
@@ -364,6 +420,10 @@ export const GstBillPage: FC = () => {
       setCustomerAddress('');
       setCustomerGst('');
       setCustomerAadhar('');
+      setDespatchTo('');
+      setDeliveryName('');
+      setDeliveryAddress('');
+      setDeliveryAadhar('');
       setPlaceOfSupply('Tamil Nadu (33)');
     }
   };
@@ -395,9 +455,10 @@ export const GstBillPage: FC = () => {
       particular: selectedProduct.trim(),
       hsnCode: hsnCode || '3604',
       quantity: qNum,
-      unit: unit || 'Box',
+      unit: unit || 'Case',
+      per: unit || 'Case',
       rate: rNum,
-      gstRate: parseFloat(overallGstRate) || 18,
+      gstRate: 0,
       taxableAmount: (qNum * rNum).toFixed(2),
       amount: (qNum * rNum).toFixed(2),
     };
@@ -414,33 +475,43 @@ export const GstBillPage: FC = () => {
 
   // Prepare Bill Object for print and save
   const buildCurrentGstBillData = (): GstBillPrintData => {
+    const isDelivSame = deliverySameAsBilling;
     return {
       billNo,
       date: formatDisplayDate(billDate),
-      customerName: customerName || 'Walk-in Customer',
+      customerName: customerName || 'Shanmugam Azhakan',
       customerPhone,
-      customerAddress,
-      customerGst: customerGst || 'Unregistered',
-      customerAadhar,
+      customerAddress: customerAddress || 'Urappakam',
+      customerGst: customerGst || '',
+      customerAadhar: customerAadhar || '623733930082',
+      deliveryName: isDelivSame ? customerName : (deliveryName || customerName),
+      deliveryAddress: isDelivSame ? customerAddress : (deliveryAddress || customerAddress),
+      deliveryAadhar: isDelivSame ? customerAadhar : (deliveryAadhar || customerAadhar),
       placeOfSupply,
       reverseCharge: 'No',
       vehicleNo: '',
       ewayBillNo: '',
-      transport: '-',
-      caseCount: '0',
-      companyName: storeSettings.companyName || 'Apsara Crackers',
+      transport: transport || 'Palani murugan transport',
+      transportGstin: transportGstin || '',
+      despatchFrom: despatchFrom || 'SIVAKASI',
+      despatchTo: despatchTo || customerAddress || 'Urappakam',
+      caseCount: lineCalculations.totalCases,
+      companyName: 'APSARA TRADERS',
+      gstin: storeSettings.gstin || '33ABFFA6758B1ZP',
+      hsnNo: hsnNo || hsnCode || '3604',
       products: lineCalculations.computedRows,
       subtotal: lineCalculations.taxableTotal,
-      gstRate: overallGstRate,
-      discount: overallDiscount,
-      transportCharges: '0',
-      packingCharges: '0',
-      cgstTotal: lineCalculations.cgstTotal,
-      sgstTotal: lineCalculations.sgstTotal,
-      igstTotal: lineCalculations.igstTotal,
+      discount: lineCalculations.discountAmount,
+      discountPercent,
+      packingCharges: lineCalculations.packingAmount,
+      packingPercent,
       roundOff: lineCalculations.roundOff,
       total: lineCalculations.grandTotal,
+      previousTurnover: lineCalculations.previousTurnover,
+      thisBillTurnover: lineCalculations.thisBillTurnover,
+      totalTurnover: lineCalculations.totalTurnover,
       paymentStatus: 'UNPAID',
+      invoiceCopy: 'ORIGINAL',
     };
   };
 
@@ -473,31 +544,39 @@ export const GstBillPage: FC = () => {
         vehicleNo: billData.vehicleNo,
         ewayBillNo: billData.ewayBillNo,
         transport: billData.transport,
+        transportGstin: billData.transportGstin,
+        despatchFrom: billData.despatchFrom,
+        despatchTo: billData.despatchTo,
+        deliveryName: billData.deliveryName,
+        deliveryAddress: billData.deliveryAddress,
+        deliveryAadhar: billData.deliveryAadhar,
         caseCount: String(billData.caseCount),
         companyName: billData.companyName,
         discount: String(billData.discount),
+        discountPercent: String(billData.discountPercent),
         packing: String(billData.packingCharges),
+        packingPercent: String(billData.packingPercent),
         amount: String(billData.subtotal),
-        tax: String(parseFloat(billData.cgstTotal as string || '0') + parseFloat(billData.sgstTotal as string || '0') + parseFloat(billData.igstTotal as string || '0')),
+        tax: '0',
         total: String(billData.total),
+        previousTurnover: String(billData.previousTurnover),
+        thisBillTurnover: String(billData.thisBillTurnover),
+        totalTurnover: String(billData.totalTurnover),
+        hsnNo: String(billData.hsnNo),
         billType: 'GST',
-        gstRate: String(billData.gstRate || overallGstRate),
-        cgstTotal: String(billData.cgstTotal),
-        sgstTotal: String(billData.sgstTotal),
-        igstTotal: String(billData.igstTotal),
         roundOff: String(billData.roundOff),
         products: billData.products.map((p) => ({
           particular: p.particular,
           quantity: String(p.quantity),
           rate: String(p.rate),
-          pktUnit: String(p.unit || 'Box'),
+          pktUnit: String(p.unit || 'Case'),
           amount: String(p.amount),
           hsnCode: String(p.hsnCode || '3604'),
-          gstRate: String(p.gstRate || overallGstRate),
+          gstRate: '0',
           taxableAmount: String(p.taxableAmount || p.amount),
-          cgst: String(p.cgst || '0'),
-          sgst: String(p.sgst || '0'),
-          igst: String(p.igst || '0'),
+          cgst: '0',
+          sgst: '0',
+          igst: '0',
         })),
       };
 
@@ -516,7 +595,15 @@ export const GstBillPage: FC = () => {
 
       alert(`GST Invoice #${billData.billNo} saved successfully!`);
 
-      // Reset form immediately for fresh new bill entry (zero old customer data / products)
+      // Increment Cumulative Sales Turnover automatically for future bills!
+      const addedTurnover = (parseFloat(currentTurnover) || 726900) + lineCalculations.grandTotalNum;
+      const newTurnoverStr = addedTurnover.toFixed(2);
+      setCurrentTurnover(newTurnoverStr);
+      setTopTurnoverInput(newTurnoverStr);
+      localStorage.setItem('apsara_gst_turnover_current', newTurnoverStr);
+      SettingsApi.update({ ...storeSettings, gstTurnoverCurrent: newTurnoverStr }).catch(() => {});
+
+      // Reset form immediately for fresh new bill entry
       handleResetForm();
 
       if (andPrint) {
@@ -695,7 +782,7 @@ export const GstBillPage: FC = () => {
               '&:hover': { backgroundColor: '#B91C1C' },
             }}
           >
-            + New Bill
+           New Bill
           </Button>
 
           {/* View Switcher Tabs */}
@@ -838,7 +925,99 @@ export const GstBillPage: FC = () => {
 
       {/* CREATE GST INVOICE TAB */}
       {activeSubTab === 'create' && (
-        <Grid container spacing={3}>
+        <Box>
+          {/* Top Sales Turnover Setting & Auto-Accumulation Control Bar */}
+          <Paper
+            elevation={0}
+            sx={{
+              p: 2,
+              mb: 3,
+              borderRadius: '12px',
+              border: '1.5px solid #FCA5A5',
+              backgroundColor: '#FEF2F2',
+              display: 'flex',
+              flexDirection: { xs: 'column', md: 'row' },
+              alignItems: { xs: 'flex-start', md: 'center' },
+              justifyContent: 'space-between',
+              gap: 2,
+            }}
+          >
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.8 }}>
+              <Box
+                sx={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: '10px',
+                  backgroundColor: '#FEE2E2',
+                  border: '1px solid #FECACA',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#DC2626',
+                  flexShrink: 0,
+                }}
+              >
+                <TrendingUpRoundedIcon sx={{ fontSize: 26 }} />
+              </Box>
+              <Box>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                  <Typography sx={{ fontSize: '14.5px', fontWeight: 800, color: '#991B1B' }}>
+                    Sales Turnover Baseline (Section 10 - Composition Scheme)
+                  </Typography>
+                  <Chip
+                    size="small"
+                    label={`Current Upto Previous Bill: ₹${parseFloat(currentTurnover || '0').toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                    sx={{
+                      backgroundColor: '#DC2626',
+                      color: '#FFFFFF',
+                      fontWeight: 800,
+                      fontSize: '11.5px',
+                    }}
+                  />
+                </Box>
+                <Typography sx={{ fontSize: '12px', color: '#7F1D1D', mt: 0.3 }}>
+                  Sales Turnover oru oru bill-kum enter panna thevaiyillai. Top-la enter panni save seitha amount-udan, aduthadutha bill-gal save aagum pothu automatic aaga add aagi calculate aagum.
+                </Typography>
+              </Box>
+            </Box>
+
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2, width: { xs: '100%', md: 'auto' }, flexShrink: 0 }}>
+              <TextField
+                size="small"
+                label="Baseline Turnover (₹)"
+                value={topTurnoverInput}
+                onChange={(e) => setTopTurnoverInput(e.target.value)}
+                placeholder="726900.00"
+                sx={{
+                  width: { xs: '100%', md: '190px' },
+                  backgroundColor: '#FFFFFF',
+                  '& input': { fontWeight: 700, color: '#0F172A' },
+                }}
+              />
+              <Button
+                variant="contained"
+                onClick={handleSaveTurnoverBaseline}
+                startIcon={<SaveRoundedIcon />}
+                sx={{
+                  backgroundColor: '#DC2626',
+                  color: '#FFFFFF',
+                  fontWeight: 800,
+                  fontSize: '13px',
+                  textTransform: 'none',
+                  whiteSpace: 'nowrap',
+                  px: 2.2,
+                  py: 0.9,
+                  borderRadius: '8px',
+                  boxShadow: '0 2px 6px rgba(220, 38, 38, 0.25)',
+                  '&:hover': { backgroundColor: '#B91C1C' },
+                }}
+              >
+                Save Turnover
+              </Button>
+            </Box>
+          </Paper>
+
+          <Grid container spacing={3}>
           {/* Main Left Form: Customer & Line Items */}
           <Grid size={{ xs: 12, lg: 8 }}>
             {/* Invoice Meta Card */}
@@ -874,12 +1053,12 @@ export const GstBillPage: FC = () => {
                     '&:hover': { backgroundColor: '#B91C1C' },
                   }}
                 >
-                  + New Bill
+                  New Bill
                 </Button>
               </Box>
 
               <Grid container spacing={{ xs: 2, sm: 3 }}>
-                <Grid size={{ xs: 12, sm: 4 }}>
+                <Grid size={{ xs: 12, sm: 3 }}>
                   <TextField
                     fullWidth
                     size="small"
@@ -888,7 +1067,7 @@ export const GstBillPage: FC = () => {
                     onChange={(e) => setBillNo(e.target.value)}
                   />
                 </Grid>
-                <Grid size={{ xs: 12, sm: 4 }}>
+                <Grid size={{ xs: 12, sm: 3 }}>
                   <TextField
                     fullWidth
                     size="small"
@@ -905,47 +1084,80 @@ export const GstBillPage: FC = () => {
                     }}
                   />
                 </Grid>
+                <Grid size={{ xs: 12, sm: 3 }}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    label="Despatch From"
+                    value={despatchFrom}
+                    onChange={(e) => setDespatchFrom(e.target.value)}
+                    placeholder="SIVAKASI"
+                  />
+                </Grid>
+                <Grid size={{ xs: 12, sm: 3 }}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    label="Despatch To"
+                    value={despatchTo}
+                    onChange={(e) => setDespatchTo(e.target.value)}
+                    placeholder="e.g. Urappakam"
+                  />
+                </Grid>
+
                 <Grid size={{ xs: 12, sm: 4 }}>
-                  <FormControl fullWidth size="small">
-                    <InputLabel>Place of Supply</InputLabel>
-                    <Select
-                      value={placeOfSupply}
-                      label="Place of Supply"
-                      onChange={(e) => setPlaceOfSupply(e.target.value)}
-                    >
-                      {INDIAN_STATES.map((st) => (
-                        <MenuItem key={st.code} value={`${st.name} (${st.code})`}>
-                          {st.name} ({st.code})
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    label="Transport Name"
+                    value={transport}
+                    onChange={(e) => setTransport(e.target.value)}
+                    placeholder="e.g. Palani murugan transport"
+                  />
+                </Grid>
+                <Grid size={{ xs: 12, sm: 4 }}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    label="Transport GSTIN"
+                    value={transportGstin}
+                    onChange={(e) => setTransportGstin(e.target.value.toUpperCase())}
+                    placeholder="Optional GSTIN"
+                  />
+                </Grid>
+                <Grid size={{ xs: 12, sm: 4 }}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    label="HSN Code"
+                    value={hsnNo}
+                    onChange={(e) => setHsnNo(e.target.value)}
+                    placeholder="3604"
+                  />
                 </Grid>
               </Grid>
 
-              {/* Tax Type Alert Badge */}
+              {/* Composition Tax Badge */}
               <Box
                 sx={{
                   mt: 3,
                   p: 1.8,
                   borderRadius: '10px',
-                  backgroundColor: isInterState ? '#EFF6FF' : '#ECFDF5',
-                  border: isInterState ? '1px solid #BFDBFE' : '1px solid #A7F3D0',
+                  backgroundColor: '#EFF6FF',
+                  border: '1px solid #BFDBFE',
                   display: 'flex',
                   alignItems: 'center',
                   gap: 1.2,
                 }}
               >
-                <CheckCircleOutlineRoundedIcon sx={{ fontSize: 20, color: isInterState ? '#1D4ED8' : '#047857' }} />
-                <Typography sx={{ fontSize: '12.5px', fontWeight: 600, color: isInterState ? '#1E40AF' : '#065F46' }}>
-                  {isInterState
-                    ? `Inter-State Supply: IGST (${overallGstRate}%) applies (${placeOfSupply} differs from supplier state)`
-                    : `Intra-State Supply: CGST (${(parseFloat(overallGstRate) / 2).toFixed(1)}%) + SGST (${(parseFloat(overallGstRate) / 2).toFixed(1)}%) applies (${placeOfSupply})`}
+                <CheckCircleOutlineRoundedIcon sx={{ fontSize: 20, color: '#1D4ED8' }} />
+                <Typography sx={{ fontSize: '12.5px', fontWeight: 600, color: '#1E40AF' }}>
+                  Composition Scheme GST Bill (Section 10 of GST Act 2017) • Despatch From {despatchFrom} to {despatchTo || customerAddress || 'Urappakam'}
                 </Typography>
               </Box>
             </Paper>
 
-            {/* Customer Details Card (Inline Side-by-Side Value & Input Layout) */}
+            {/* Customer Details Card (Buyer & Delivery Information) */}
             <Paper
               elevation={0}
               sx={{
@@ -958,7 +1170,7 @@ export const GstBillPage: FC = () => {
               }}
             >
               <Typography sx={{ fontSize: '15px', fontWeight: 800, color: '#0F172A', mb: 3 }}>
-                Customer (Receiver / Buyer) Information
+                Customer (To) & Delivery Information
               </Typography>
 
               <Grid container spacing={{ xs: 2.5, sm: 3 }}>
@@ -986,26 +1198,26 @@ export const GstBillPage: FC = () => {
                         }}
                         onChange={handleCustomerChange}
                         renderInput={(params) => (
-                          <TextField {...params} size="small" placeholder="Type or select customer" />
+                          <TextField {...params} size="small" placeholder="Type or select customer (e.g. Shanmugam Azhakan)" />
                         )}
                       />
                     </Box>
                   </Box>
                 </Grid>
 
-                {/* Customer GSTIN */}
+                {/* Customer AADHAR / PAN */}
                 <Grid size={{ xs: 12, md: 6 }}>
                   <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, alignItems: { xs: 'flex-start', sm: 'center' }, gap: { xs: 0.8, sm: 2 } }}>
                     <Typography sx={{ width: { xs: '100%', sm: '140px' }, minWidth: { xs: 'auto', sm: '140px' }, flexShrink: 0, fontSize: '13px', fontWeight: 700, color: '#334155' }}>
-                      Customer GSTIN :
+                      AADHAR / PAN No :
                     </Typography>
                     <Box sx={{ flex: 1, width: '100%' }}>
                       <TextField
                         fullWidth
                         size="small"
-                        placeholder="15-digit GSTIN (e.g. 33AABCU9603R1ZM)"
-                        value={customerGst}
-                        onChange={(e) => setCustomerGst(e.target.value.toUpperCase())}
+                        placeholder="e.g. 623733930082"
+                        value={customerAadhar}
+                        onChange={(e) => setCustomerAadhar(e.target.value)}
                       />
                     </Box>
                   </Box>
@@ -1029,26 +1241,8 @@ export const GstBillPage: FC = () => {
                   </Box>
                 </Grid>
 
-                {/* Aadhar Number */}
-                <Grid size={{ xs: 12, md: 6 }}>
-                  <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, alignItems: { xs: 'flex-start', sm: 'center' }, gap: { xs: 0.8, sm: 2 } }}>
-                    <Typography sx={{ width: { xs: '100%', sm: '140px' }, minWidth: { xs: 'auto', sm: '140px' }, flexShrink: 0, fontSize: '13px', fontWeight: 700, color: '#334155' }}>
-                      Aadhar Number :
-                    </Typography>
-                    <Box sx={{ flex: 1, width: '100%' }}>
-                      <TextField
-                        fullWidth
-                        size="small"
-                        placeholder="12-digit Aadhaar number"
-                        value={customerAadhar}
-                        onChange={(e) => setCustomerAadhar(e.target.value)}
-                      />
-                    </Box>
-                  </Box>
-                </Grid>
-
                 {/* Customer Address */}
-                <Grid size={{ xs: 12 }}>
+                <Grid size={{ xs: 12, md: 6 }}>
                   <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, alignItems: { xs: 'flex-start', sm: 'center' }, gap: { xs: 0.8, sm: 2 } }}>
                     <Typography sx={{ width: { xs: '100%', sm: '140px' }, minWidth: { xs: 'auto', sm: '140px' }, flexShrink: 0, fontSize: '13px', fontWeight: 700, color: '#334155' }}>
                       Address / City :
@@ -1057,13 +1251,68 @@ export const GstBillPage: FC = () => {
                       <TextField
                         fullWidth
                         size="small"
-                        placeholder="Billing & Shipping Address"
+                        placeholder="e.g. Urappakam"
                         value={customerAddress}
                         onChange={(e) => setCustomerAddress(e.target.value)}
                       />
                     </Box>
                   </Box>
                 </Grid>
+
+                {/* Same as Buyer Checkbox */}
+                <Grid size={{ xs: 12 }}>
+                  <Divider sx={{ my: 0.5 }} />
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        checked={deliverySameAsBilling}
+                        onChange={(e) => setDeliverySameAsBilling(e.target.checked)}
+                        sx={{ color: '#DC2626', '&.Mui-checked': { color: '#DC2626' } }}
+                      />
+                    }
+                    label={
+                      <Typography sx={{ fontSize: '13px', fontWeight: 700, color: '#1E293B' }}>
+                        Delivery To Details are identical to Customer (To) Details
+                      </Typography>
+                    }
+                  />
+                </Grid>
+
+                {/* Custom Delivery Fields when unchecked */}
+                {!deliverySameAsBilling && (
+                  <>
+                    <Grid size={{ xs: 12, sm: 4 }}>
+                      <TextField
+                        fullWidth
+                        size="small"
+                        label="Delivery Name"
+                        value={deliveryName}
+                        onChange={(e) => setDeliveryName(e.target.value)}
+                        placeholder="Receiver Name"
+                      />
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 4 }}>
+                      <TextField
+                        fullWidth
+                        size="small"
+                        label="Delivery Address / City"
+                        value={deliveryAddress}
+                        onChange={(e) => setDeliveryAddress(e.target.value)}
+                        placeholder="Delivery Location"
+                      />
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 4 }}>
+                      <TextField
+                        fullWidth
+                        size="small"
+                        label="Delivery AADHAR / PAN"
+                        value={deliveryAadhar}
+                        onChange={(e) => setDeliveryAadhar(e.target.value)}
+                        placeholder="AADHAR / PAN"
+                      />
+                    </Grid>
+                  </>
+                )}
               </Grid>
             </Paper>
 
@@ -1218,7 +1467,7 @@ export const GstBillPage: FC = () => {
           {/* Right Sidebar: Tax Summary & Actions */}
           <Grid size={{ xs: 12, lg: 4 }}>
 
-            {/* GST Tax Summary Card with Whole Bill GST % Selector */}
+            {/* Invoice Total & Sales Turnover Summary Card */}
             <Paper
               elevation={0}
               sx={{
@@ -1231,83 +1480,118 @@ export const GstBillPage: FC = () => {
               }}
             >
               <Typography sx={{ fontSize: '15px', fontWeight: 800, color: '#0F172A', mb: 2.5 }}>
-                Invoice Total & Tax Summary
+                Invoice Total &amp; Summary
               </Typography>
 
-              {/* Overall GST Rate Input on the whole bill (Direct Typing) */}
-              <Box sx={{ p: 2, backgroundColor: '#F8FAFC', borderRadius: '10px', border: '1px solid #E2E8F0', mb: 2.5 }}>
-                <Typography sx={{ fontSize: '12.5px', fontWeight: 700, color: '#334155', mb: 1 }}>
-                  Overall GST Rate (%) on Goods:
-                </Typography>
-                <TextField
-                  fullWidth
-                  size="small"
-                  type="number"
-                  placeholder="Type GST % (e.g. 18)"
-                  value={overallGstRate}
-                  onChange={(e) => setOverallGstRate(e.target.value)}
-                  slotProps={{
-                    input: {
-                      endAdornment: <InputAdornment position="end" sx={{ fontWeight: 700 }}>%</InputAdornment>,
-                    },
-                  }}
-                  sx={{ backgroundColor: '#FFFFFF', '& input': { fontWeight: 700 } }}
-                />
-              </Box>
+              {/* Discount % and P & F CHGS % Inputs */}
+              <Grid container spacing={2} sx={{ mb: 2.5 }}>
+                <Grid size={{ xs: 6 }}>
+                  <Typography sx={{ fontSize: '12px', fontWeight: 700, color: '#475569', mb: 0.5 }}>
+                    Discount (%):
+                  </Typography>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    type="number"
+                    value={discountPercent}
+                    onChange={(e) => setDiscountPercent(e.target.value)}
+                    slotProps={{
+                      htmlInput: {
+                        onWheel: (e: any) => (e.target as HTMLElement).blur(),
+                        step: 'any',
+                      },
+                      input: {
+                        endAdornment: <InputAdornment position="end">%</InputAdornment>,
+                      },
+                    }}
+                    sx={{
+                      backgroundColor: '#FFFFFF',
+                      '& input': {
+                        fontWeight: 700,
+                        '&::-webkit-outer-spin-button, &::-webkit-inner-spin-button': {
+                          WebkitAppearance: 'none',
+                          margin: 0,
+                        },
+                        MozAppearance: 'textfield',
+                      },
+                    }}
+                  />
+                </Grid>
+                <Grid size={{ xs: 6 }}>
+                  <Typography sx={{ fontSize: '12px', fontWeight: 700, color: '#475569', mb: 0.5 }}>
+                    P &amp; F CHGS (%):
+                  </Typography>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    type="number"
+                    value={packingPercent}
+                    onChange={(e) => setPackingPercent(e.target.value)}
+                    slotProps={{
+                      htmlInput: {
+                        onWheel: (e: any) => (e.target as HTMLElement).blur(),
+                        step: 'any',
+                      },
+                      input: {
+                        endAdornment: <InputAdornment position="end">%</InputAdornment>,
+                      },
+                    }}
+                    sx={{
+                      backgroundColor: '#FFFFFF',
+                      '& input': {
+                        fontWeight: 700,
+                        '&::-webkit-outer-spin-button, &::-webkit-inner-spin-button': {
+                          WebkitAppearance: 'none',
+                          margin: 0,
+                        },
+                        MozAppearance: 'textfield',
+                      },
+                    }}
+                  />
+                </Grid>
+              </Grid>
 
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.4 }}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <Typography sx={{ fontSize: '13px', color: '#64748B' }}>Taxable Goods Value:</Typography>
+                  <Typography sx={{ fontSize: '13px', color: '#64748B' }}>Total :</Typography>
                   <Typography sx={{ fontSize: '13px', fontWeight: 700, color: '#0F172A' }}>
                     ₹{lineCalculations.taxableTotal}
                   </Typography>
                 </Box>
 
-                {!isInterState ? (
-                  <>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <Typography sx={{ fontSize: '13px', color: '#64748B' }}>
-                        CGST ({((parseFloat(overallGstRate) || 0) / 2).toFixed(1)}%):
-                      </Typography>
-                      <Typography sx={{ fontSize: '13px', fontWeight: 700, color: '#0F172A' }}>
-                        ₹{lineCalculations.cgstTotal}
-                      </Typography>
-                    </Box>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <Typography sx={{ fontSize: '13px', color: '#64748B' }}>
-                        SGST ({((parseFloat(overallGstRate) || 0) / 2).toFixed(1)}%):
-                      </Typography>
-                      <Typography sx={{ fontSize: '13px', fontWeight: 700, color: '#0F172A' }}>
-                        ₹{lineCalculations.sgstTotal}
-                      </Typography>
-                    </Box>
-                  </>
-                ) : (
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <Typography sx={{ fontSize: '13px', color: '#64748B' }}>
-                      IGST ({parseFloat(overallGstRate) || 0}%):
-                    </Typography>
-                    <Typography sx={{ fontSize: '13px', fontWeight: 700, color: '#0F172A' }}>
-                      ₹{lineCalculations.igstTotal}
-                    </Typography>
-                  </Box>
-                )}
+                <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <Typography sx={{ fontSize: '13px', color: '#64748B' }}>
+                    Less : Discount ({discountPercent}%):
+                  </Typography>
+                  <Typography sx={{ fontSize: '13px', fontWeight: 600, color: '#059669' }}>
+                    -₹{lineCalculations.discountAmount}
+                  </Typography>
+                </Box>
 
-                {parseFloat(overallDiscount) > 0 && (
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <Typography sx={{ fontSize: '13px', color: '#64748B' }}>Bill Discount:</Typography>
-                    <Typography sx={{ fontSize: '13px', fontWeight: 600, color: '#059669' }}>-₹{overallDiscount}</Typography>
-                  </Box>
-                )}
+                <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <Typography sx={{ fontSize: '13px', color: '#64748B' }}>
+                    ADD : P &amp; F CHGS ({packingPercent}%):
+                  </Typography>
+                  <Typography sx={{ fontSize: '13px', fontWeight: 600, color: '#0F172A' }}>
+                    +₹{lineCalculations.packingAmount}
+                  </Typography>
+                </Box>
+
+                <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <Typography sx={{ fontSize: '13px', color: '#64748B' }}>Value of Goods :</Typography>
+                  <Typography sx={{ fontSize: '13px', fontWeight: 700, color: '#0F172A' }}>
+                    ₹{lineCalculations.valueOfGoods}
+                  </Typography>
+                </Box>
 
                 {lineCalculations.roundOff !== '0.00' && (
                   <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <Typography sx={{ fontSize: '13px', color: '#64748B' }}>Round Off:</Typography>
+                    <Typography sx={{ fontSize: '13px', color: '#64748B' }}>Round Off :</Typography>
                     <Typography sx={{ fontSize: '13px', fontWeight: 600 }}>₹{lineCalculations.roundOff}</Typography>
                   </Box>
                 )}
 
-                <Divider sx={{ my: 1, borderColor: '#E2E8F0' }} />
+                <Divider sx={{ my: 0.5, borderColor: '#E2E8F0' }} />
 
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <Typography sx={{ fontSize: '15px', fontWeight: 800, color: '#0F172A' }}>Grand Total:</Typography>
@@ -1318,13 +1602,68 @@ export const GstBillPage: FC = () => {
 
                 <Box sx={{ p: 1.5, backgroundColor: '#F8FAFC', borderRadius: '8px', mt: 0.5 }}>
                   <Typography sx={{ fontSize: '11.5px', color: '#475569', fontStyle: 'italic', lineHeight: 1.4 }}>
-                    In Words: {numberToIndianWords(lineCalculations.grandTotalNum)}
+                    Rupees : {numberToIndianWords(lineCalculations.grandTotalNum).replace(/\s*Rupees\s*/i, ' ').replace(/\s*Only\s*/i, '').trim()} Only.
+                  </Typography>
+                </Box>
+
+                <Divider sx={{ my: 1, borderColor: '#E2E8F0' }} />
+
+                {/* Sales Turnover (Composition Scheme) Auto-Computed Box */}
+                <Box sx={{ p: 2, backgroundColor: '#FEF2F2', borderRadius: '10px', border: '1px solid #FECACA' }}>
+                  <Typography sx={{ fontSize: '13px', fontWeight: 800, color: '#991B1B', textDecoration: 'underline', mb: 1.5 }}>
+                    Sales Turnover
+                  </Typography>
+
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.8 }}>
+                    <Typography sx={{ fontSize: '12px', color: '#7F1D1D' }}>Upto Previous Bill Rs. :</Typography>
+                    <Typography sx={{ fontSize: '12px', fontWeight: 700, color: '#991B1B' }}>
+                      ₹{parseFloat(lineCalculations.previousTurnover).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </Typography>
+                  </Box>
+
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.8 }}>
+                    <Typography sx={{ fontSize: '12px', color: '#7F1D1D' }}>This Bill Rs. :</Typography>
+                    <Typography sx={{ fontSize: '12px', fontWeight: 700, color: '#991B1B' }}>
+                      ₹{parseFloat(lineCalculations.thisBillTurnover).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </Typography>
+                  </Box>
+
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', pt: 0.8, borderTop: '1px solid #FECACA' }}>
+                    <Typography sx={{ fontSize: '12.5px', fontWeight: 800, color: '#7F1D1D' }}>Total Turnover Rs. :</Typography>
+                    <Typography sx={{ fontSize: '12.5px', fontWeight: 800, color: '#991B1B' }}>
+                      ₹{parseFloat(lineCalculations.totalTurnover).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </Typography>
+                  </Box>
+
+                  <Typography sx={{ fontSize: '10.5px', fontWeight: 700, color: '#B91C1C', mt: 1.5, fontStyle: 'italic', lineHeight: 1.3 }}>
+                    "we are liable to pay Composition Tax Under section 10 of GST Act 2017"
                   </Typography>
                 </Box>
               </Box>
 
               {/* Action Buttons */}
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, mt: 3.5 }}>
+                <Button
+                  fullWidth
+                  variant="outlined"
+                  onClick={() => {
+                    const previewData = buildCurrentGstBillData();
+                    setSelectedBillForPrint(previewData);
+                    setPrintModalOpen(true);
+                  }}
+                  startIcon={<VisibilityOutlinedIcon />}
+                  sx={{
+                    color: '#1E40AF',
+                    borderColor: '#93C5FD',
+                    fontWeight: 800,
+                    py: 1.1,
+                    backgroundColor: '#EFF6FF',
+                    '&:hover': { backgroundColor: '#DBEAFE', borderColor: '#3B82F6' },
+                  }}
+                >
+                  Preview Tax Invoice
+                </Button>
+
                 <Button
                   fullWidth
                   variant="contained"
@@ -1371,12 +1710,13 @@ export const GstBillPage: FC = () => {
                     '&:hover': { backgroundColor: '#FEF2F2', borderColor: '#DC2626' },
                   }}
                 >
-                  + New Bill / Reset Form
+                  New Bill / Reset Form
                 </Button>
               </Box>
             </Paper>
           </Grid>
         </Grid>
+      </Box>
       )}
 
       {/* GST INVOICES HISTORY TAB */}
@@ -1556,6 +1896,18 @@ export const GstBillPage: FC = () => {
         onClose={() => setPrintModalOpen(false)}
         bill={selectedBillForPrint}
       />
+
+      {/* Turnover Save Feedback Toast */}
+      <Snackbar
+        open={Boolean(turnoverSnackbar)}
+        autoHideDuration={3500}
+        onClose={() => setTurnoverSnackbar('')}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert onClose={() => setTurnoverSnackbar('')} severity="success" sx={{ width: '100%', fontWeight: 700 }}>
+          {turnoverSnackbar}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };

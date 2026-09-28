@@ -16,6 +16,8 @@ export interface ISettings extends Document {
   logoUrl?: string;
   enableTax?: boolean;
   defaultTaxRate?: string;
+  gstTurnoverBaseline?: string;
+  gstTurnoverCurrent?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -37,8 +39,10 @@ const SettingsSchema: Schema = new Schema(
     logoUrl: { type: String, default: '' },
     enableTax: { type: Boolean, default: false },
     defaultTaxRate: { type: String, default: '18' },
+    gstTurnoverBaseline: { type: String, default: '726900.00', trim: true },
+    gstTurnoverCurrent: { type: String, default: '726900.00', trim: true },
   },
-  { timestamps: true }
+  { timestamps: true, strict: false }
 );
 
 export const Settings = mongoose.model<ISettings>('Settings', SettingsSchema);

@@ -40,6 +40,8 @@ export interface CompanySettings {
   logoUrl?: string;
   enableTax?: boolean;
   defaultTaxRate?: string;
+  gstTurnoverBaseline?: string;
+  gstTurnoverCurrent?: string;
 }
 
 export const DEFAULT_COMPANY_SETTINGS: CompanySettings = {
@@ -58,6 +60,8 @@ export const DEFAULT_COMPANY_SETTINGS: CompanySettings = {
   logoUrl: defaultProjectLogo,
   enableTax: false,
   defaultTaxRate: '18',
+  gstTurnoverBaseline: '726900.00',
+  gstTurnoverCurrent: '726900.00',
 };
 
 export const removeWhiteBackgroundFromDataUrl = (

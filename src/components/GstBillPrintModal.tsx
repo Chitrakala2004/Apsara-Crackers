@@ -149,7 +149,7 @@ export const GstBillPrintModal: React.FC<GstBillPrintModalProps> = ({ open, onCl
                 },
               }}
             >
-              Print 4 Copies
+              Print Tax Invoice
             </Button>
             <IconButton onClick={onClose} sx={{ color: '#FFFFFF', p: 0.5 }}>
               <CloseRoundedIcon sx={{ fontSize: 22 }} />
@@ -157,7 +157,7 @@ export const GstBillPrintModal: React.FC<GstBillPrintModalProps> = ({ open, onCl
           </Box>
         </Box>
 
-        {/* 4 Copies Indicator Bar */}
+        {/* Single Copy Indicator Bar */}
         <Box
           className="gst-no-print"
           sx={{
@@ -178,12 +178,12 @@ export const GstBillPrintModal: React.FC<GstBillPrintModalProps> = ({ open, onCl
               Print Output:
             </Typography>
             <Typography sx={{ fontSize: '12px', color: '#7F1D1D', fontWeight: 500 }}>
-              Single standard invoice — Automatically prints 4 identical copies (1 Page per Copy)
+              Single Copy (ORIGINAL) • Exact Composition Scheme Format
             </Typography>
           </Box>
           <Chip
             size="small"
-            label="4 Copies Auto-Print"
+            label="Single Copy (ORIGINAL)"
             sx={{
               backgroundColor: '#DC2626',
               color: '#FFFFFF',
@@ -203,21 +203,9 @@ export const GstBillPrintModal: React.FC<GstBillPrintModalProps> = ({ open, onCl
           }}
         >
           <Box className="gst-printable-area">
-            {/* Screen Preview (single copy for preview) */}
-            <Box sx={{ '@media print': { display: 'none' } }}>
-              <GstBillPrintTemplate bill={bill} />
-            </Box>
-
-            {/* Print Area for native Ctrl+P (4 identical copies) */}
-            <Box sx={{ display: 'none', '@media print': { display: 'block' } }}>
-              {[1, 2, 3, 4].map((copyNum) => (
-                <Box
-                  key={copyNum}
-                  className="gst-print-copy"
-                >
-                  <GstBillPrintTemplate bill={bill} />
-                </Box>
-              ))}
+            {/* Single Copy: ORIGINAL */}
+            <Box className="gst-print-copy">
+              <GstBillPrintTemplate bill={bill} copyLabel="ORIGINAL" />
             </Box>
           </Box>
         </DialogContent>
@@ -260,7 +248,7 @@ export const GstBillPrintModal: React.FC<GstBillPrintModalProps> = ({ open, onCl
               '&:hover': { backgroundColor: '#B91C1C' },
             }}
           >
-            Print Tax Invoice (4 Copies)
+            Print Tax Invoice (ORIGINAL)
           </Button>
         </DialogActions>
       </Dialog>
