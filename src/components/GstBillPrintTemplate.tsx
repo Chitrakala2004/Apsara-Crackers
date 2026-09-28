@@ -202,7 +202,7 @@ export const GstBillPrintTemplate: React.FC<GstBillPrintTemplateProps> = ({ bill
     ? bill.transport
     : '';
   const transportGstin = bill.transportGstin || '';
-  const hsnNo = bill.hsnNo || products[0]?.hsnCode || '';
+  const hsnNo = bill.hsnNo || products[0]?.hsnCode || '3604';
 
   // Sales Turnover
   const prevTurnoverNum = parseFloat(String(bill.previousTurnover || 0)) || 0;
@@ -216,8 +216,8 @@ export const GstBillPrintTemplate: React.FC<GstBillPrintTemplateProps> = ({ bill
     .replace(/\s*Only\s*/i, '')
     .trim();
 
-  // Dynamic spacer height to keep table lines running down continuously
-  const spacerMinHeight = Math.max(180, 340 - products.length * 28);
+  // Dynamic spacer height to keep table lines running down continuously while fitting on single A4 sheet
+  const spacerMinHeight = Math.max(30, 260 - products.length * 24);
 
   const displayCopy = copyLabel || bill.invoiceCopy || 'ORIGINAL';
 

@@ -606,7 +606,7 @@ export const generateGstBillHtml = (bill: GstBillPrintData, copiesCount: number 
     ? bill.transport
     : '';
   const transportGstin = bill.transportGstin || '';
-  const hsnNo = bill.hsnNo || products[0]?.hsnCode || '';
+  const hsnNo = bill.hsnNo || products[0]?.hsnCode || '3604';
 
   const prevTurnoverNum = parseFloat(String(bill.previousTurnover || 0)) || 0;
   const thisBillTurnoverNum = parseFloat(String(bill.thisBillTurnover || grandTotalNum)) || grandTotalNum;
@@ -618,7 +618,7 @@ export const generateGstBillHtml = (bill: GstBillPrintData, copiesCount: number 
     .replace(/\s*Only\s*/i, '')
     .trim();
 
-  const spacerMinHeight = Math.max(180, 340 - products.length * 28);
+  const spacerMinHeight = Math.max(30, 260 - products.length * 24);
 
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
   const ganeshaImgUrl = `${origin}/ganesha.jpg`;
@@ -991,29 +991,25 @@ export const generateGstBillHtml = (bill: GstBillPrintData, copiesCount: number 
     .gst-print-copy {
       width: 100%;
       box-sizing: border-box;
-    }
-    .gst-print-copy.page-break {
-      page-break-after: always !important;
-      break-after: page !important;
-    }
-    @media print {
-      .gst-print-copy.page-break {
-        page-break-after: always !important;
-        break-after: page !important;
-      }
+      page-break-inside: avoid !important;
+      break-inside: avoid !important;
     }
     .bill-page-wrapper {
       width: 100%;
-      max-width: 820px;
+      max-width: 100%;
       margin: 0 auto;
-      padding: 4px 6px;
+      padding: 0;
       box-sizing: border-box;
+      page-break-inside: avoid !important;
+      break-inside: avoid !important;
     }
     .bill-box {
       border: 1.5px solid #000000;
       box-sizing: border-box;
       background-color: #ffffff;
       width: 100%;
+      page-break-inside: avoid !important;
+      break-inside: avoid !important;
     }
   </style>
 </head>

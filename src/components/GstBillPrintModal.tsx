@@ -72,10 +72,14 @@ export const GstBillPrintModal: React.FC<GstBillPrintModalProps> = ({ open, onCl
               background-color: #FFFFFF !important;
               -webkit-print-color-adjust: exact !important;
               print-color-adjust: exact !important;
+              page-break-inside: avoid !important;
+              break-inside: avoid !important;
             }
             .gst-print-copy {
-              page-break-after: always !important;
-              break-after: page !important;
+              page-break-after: auto !important;
+              break-after: auto !important;
+              page-break-inside: avoid !important;
+              break-inside: avoid !important;
               width: 100% !important;
             }
             .gst-print-copy:last-child {
@@ -111,30 +115,38 @@ export const GstBillPrintModal: React.FC<GstBillPrintModalProps> = ({ open, onCl
           className="gst-no-print"
           sx={{
             display: 'flex',
-            alignItems: 'center',
+            flexDirection: { xs: 'column', sm: 'row' },
+            alignItems: { xs: 'flex-start', sm: 'center' },
             justifyContent: 'space-between',
-            px: 3,
+            px: { xs: 2, sm: 3 },
             py: 1.8,
+            gap: { xs: 1.2, sm: 0 },
             background: 'linear-gradient(135deg, #DC2626 0%, #991B1B 100%)',
             color: '#FFFFFF',
           }}
         >
-          <Box>
-            <Typography sx={{ fontSize: '16px', fontWeight: 800, letterSpacing: '-0.01em' }}>
-              GST Tax Invoice - #{bill.billNo || 'New'}
-            </Typography>
+          <Box sx={{ width: { xs: '100%', sm: 'auto' } }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Typography sx={{ fontSize: '16px', fontWeight: 800, letterSpacing: '-0.01em' }}>
+                GST Tax Invoice - #{bill.billNo || 'New'}
+              </Typography>
+              <IconButton onClick={onClose} sx={{ display: { xs: 'flex', sm: 'none' }, color: '#FFFFFF', p: 0.5 }}>
+                <CloseRoundedIcon sx={{ fontSize: 22 }} />
+              </IconButton>
+            </Box>
             <Typography sx={{ fontSize: '12px', color: '#FEE2E2', fontWeight: 500 }}>
               Customer: {bill.customerName || 'Walk-in'} | Date: {bill.date}
             </Typography>
           </Box>
 
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: { xs: '100%', sm: 'auto' }, justifyContent: { xs: 'flex-end', sm: 'flex-start' } }}>
             <Button
               variant="contained"
               disableElevation
               onClick={handlePrint}
               startIcon={<PrintOutlinedIcon sx={{ fontSize: '18px !important', color: '#DC2626' }} />}
               sx={{
+                flex: { xs: 1, sm: 'none' },
                 backgroundColor: '#FFFFFF',
                 color: '#DC2626',
                 border: '1px solid #E2E8F0',
@@ -151,7 +163,7 @@ export const GstBillPrintModal: React.FC<GstBillPrintModalProps> = ({ open, onCl
             >
               Print Tax Invoice
             </Button>
-            <IconButton onClick={onClose} sx={{ color: '#FFFFFF', p: 0.5 }}>
+            <IconButton onClick={onClose} sx={{ display: { xs: 'none', sm: 'flex' }, color: '#FFFFFF', p: 0.5 }}>
               <CloseRoundedIcon sx={{ fontSize: 22 }} />
             </IconButton>
           </Box>
@@ -196,10 +208,12 @@ export const GstBillPrintModal: React.FC<GstBillPrintModalProps> = ({ open, onCl
         {/* Print Preview Content */}
         <DialogContent
           sx={{
-            p: { xs: 1.5, sm: 3 },
+            p: { xs: 1, sm: 3 },
             backgroundColor: '#F1F5F9',
-            maxHeight: '72vh',
+            maxHeight: '75vh',
             overflowY: 'auto',
+            overflowX: 'auto',
+            WebkitOverflowScrolling: 'touch',
           }}
         >
           <Box className="gst-printable-area">
@@ -214,13 +228,15 @@ export const GstBillPrintModal: React.FC<GstBillPrintModalProps> = ({ open, onCl
         <DialogActions
           className="gst-no-print"
           sx={{
-            px: 3,
+            px: { xs: 2, sm: 3 },
             py: 2,
             backgroundColor: '#FFFFFF',
             borderTop: '1px solid #E2E8F0',
             display: 'flex',
+            flexDirection: { xs: 'column-reverse', sm: 'row' },
             justifyContent: 'space-between',
-            alignItems: 'center',
+            alignItems: { xs: 'stretch', sm: 'center' },
+            gap: 1.5,
           }}
         >
           <Button
@@ -229,6 +245,7 @@ export const GstBillPrintModal: React.FC<GstBillPrintModalProps> = ({ open, onCl
             sx={{
               color: '#475569',
               borderColor: '#CBD5E1',
+              py: 1,
               '&:hover': { borderColor: '#94A3B8', backgroundColor: '#F8FAFC' },
             }}
           >
@@ -242,7 +259,7 @@ export const GstBillPrintModal: React.FC<GstBillPrintModalProps> = ({ open, onCl
             sx={{
               backgroundColor: '#DC2626',
               px: 3,
-              py: 1,
+              py: 1.1,
               fontWeight: 800,
               boxShadow: '0 4px 12px rgba(220, 38, 38, 0.3)',
               '&:hover': { backgroundColor: '#B91C1C' },

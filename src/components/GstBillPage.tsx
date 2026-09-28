@@ -128,7 +128,7 @@ export const GstBillPage: FC = () => {
     return localStorage.getItem('apsara_gst_turnover_current') || storeSettings.gstTurnoverCurrent || '0.00';
   });
   const [turnoverSnackbar, setTurnoverSnackbar] = useState<string>('');
-  const [hsnNo, setHsnNo] = useState<string>('');
+  const [hsnNo, setHsnNo] = useState<string>('3604');
 
   // Line items list
   const [productRows, setProductRows] = useState<GstProductItem[]>([]);
@@ -265,8 +265,8 @@ export const GstBillPage: FC = () => {
     setPackingPercent('0.00');
     setPlaceOfSupply('Tamil Nadu (33)');
     setSelectedProduct('');
-    setHsnCode('');
-    setHsnNo('');
+    setHsnCode('3604');
+    setHsnNo('3604');
     setQuantity('1');
     setUnit('Case');
     setRate('0');
@@ -542,7 +542,7 @@ export const GstBillPage: FC = () => {
       caseCount: lineCalculations.totalCases,
       companyName: 'APSARA TRADERS',
       gstin: storeSettings.gstin || '33ABFFA6758B1ZP',
-      hsnNo: hsnNo || hsnCode || '',
+      hsnNo: hsnNo || hsnCode || '3604',
       products: lineCalculations.computedRows,
       subtotal: lineCalculations.taxableTotal,
       discount: lineCalculations.discountAmount,
@@ -1025,7 +1025,7 @@ export const GstBillPage: FC = () => {
               </Box>
             </Box>
 
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2, width: { xs: '100%', md: 'auto' }, flexShrink: 0 }}>
+            <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, alignItems: { xs: 'stretch', sm: 'center' }, gap: 1.2, width: { xs: '100%', md: 'auto' }, flexShrink: 0 }}>
               <TextField
                 size="small"
                 label="Baseline Turnover (₹)"
@@ -1033,7 +1033,7 @@ export const GstBillPage: FC = () => {
                 onChange={(e) => setTopTurnoverInput(e.target.value)}
                 placeholder="726900.00"
                 sx={{
-                  width: { xs: '100%', md: '190px' },
+                  width: { xs: '100%', sm: '190px' },
                   backgroundColor: '#FFFFFF',
                   '& input': { fontWeight: 700, color: '#0F172A' },
                 }}
@@ -1043,6 +1043,7 @@ export const GstBillPage: FC = () => {
                 onClick={handleSaveTurnoverBaseline}
                 startIcon={<SaveRoundedIcon />}
                 sx={{
+                  width: { xs: '100%', sm: 'auto' },
                   backgroundColor: '#DC2626',
                   color: '#FFFFFF',
                   fontWeight: 800,
@@ -1102,7 +1103,7 @@ export const GstBillPage: FC = () => {
               </Box>
 
               <Grid container spacing={{ xs: 2, sm: 3 }}>
-                <Grid size={{ xs: 12, sm: 3 }}>
+                <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                   <TextField
                     fullWidth
                     size="small"
@@ -1111,7 +1112,7 @@ export const GstBillPage: FC = () => {
                     onChange={(e) => setBillNo(e.target.value)}
                   />
                 </Grid>
-                <Grid size={{ xs: 12, sm: 3 }}>
+                <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                   <TextField
                     fullWidth
                     size="small"
@@ -1128,7 +1129,7 @@ export const GstBillPage: FC = () => {
                     }}
                   />
                 </Grid>
-                <Grid size={{ xs: 12, sm: 3 }}>
+                <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                   <TextField
                     fullWidth
                     size="small"
@@ -1138,7 +1139,7 @@ export const GstBillPage: FC = () => {
                     placeholder="e.g. SIVAKASI"
                   />
                 </Grid>
-                <Grid size={{ xs: 12, sm: 3 }}>
+                <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                   <TextField
                     fullWidth
                     size="small"
@@ -1149,7 +1150,7 @@ export const GstBillPage: FC = () => {
                   />
                 </Grid>
 
-                <Grid size={{ xs: 12, sm: 4 }}>
+                <Grid size={{ xs: 12, sm: 6, md: 4 }}>
                   <TextField
                     fullWidth
                     size="small"
@@ -1159,7 +1160,7 @@ export const GstBillPage: FC = () => {
                     placeholder="Transport name (optional)"
                   />
                 </Grid>
-                <Grid size={{ xs: 12, sm: 4 }}>
+                <Grid size={{ xs: 12, sm: 6, md: 4 }}>
                   <TextField
                     fullWidth
                     size="small"
@@ -1169,14 +1170,14 @@ export const GstBillPage: FC = () => {
                     placeholder="Optional GSTIN"
                   />
                 </Grid>
-                <Grid size={{ xs: 12, sm: 4 }}>
+                <Grid size={{ xs: 12, sm: 6, md: 4 }}>
                   <TextField
                     fullWidth
                     size="small"
-                    label="HSN Code"
+                    label="HSN Code (Fixed)"
                     value={hsnNo}
                     onChange={(e) => setHsnNo(e.target.value)}
-                    placeholder="e.g. 3604"
+                    placeholder="3604"
                   />
                 </Grid>
               </Grid>
@@ -1341,9 +1342,9 @@ export const GstBillPage: FC = () => {
                 )}
               </Box>
 
-              {/* Product Entry Row (No HSN input, No item-level GST input) */}
-              <Grid container spacing={2} sx={{ alignItems: 'center', mb: 3 }}>
-                <Grid size={{ xs: 12, sm: 5 }}>
+              {/* Product Entry Row (Responsive on mobile) */}
+              <Grid container spacing={{ xs: 1.5, sm: 2 }} sx={{ alignItems: 'center', mb: 3 }}>
+                <Grid size={{ xs: 12, md: 5 }}>
                   <Autocomplete
                     freeSolo
                     options={productOptions}
@@ -1358,7 +1359,7 @@ export const GstBillPage: FC = () => {
                   />
                 </Grid>
 
-                <Grid size={{ xs: 6, sm: 2 }}>
+                <Grid size={{ xs: 4, sm: 2, md: 2 }}>
                   <TextField
                     fullWidth
                     size="small"
@@ -1369,7 +1370,7 @@ export const GstBillPage: FC = () => {
                   />
                 </Grid>
 
-                <Grid size={{ xs: 6, sm: 2 }}>
+                <Grid size={{ xs: 4, sm: 2, md: 2 }}>
                   <TextField
                     fullWidth
                     size="small"
@@ -1379,7 +1380,7 @@ export const GstBillPage: FC = () => {
                   />
                 </Grid>
 
-                <Grid size={{ xs: 6, sm: 2 }}>
+                <Grid size={{ xs: 4, sm: 2, md: 2 }}>
                   <TextField
                     fullWidth
                     size="small"
@@ -1390,7 +1391,7 @@ export const GstBillPage: FC = () => {
                   />
                 </Grid>
 
-                <Grid size={{ xs: 12, sm: 1 }} sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+                <Grid size={{ xs: 12, sm: 12, md: 1 }} sx={{ display: 'flex', justifyContent: 'flex-end' }}>
                   <Button
                     fullWidth
                     variant="contained"
@@ -1409,8 +1410,8 @@ export const GstBillPage: FC = () => {
               </Grid>
 
               {/* Items Table (Clean: No per-item GST columns) */}
-              <TableContainer sx={{ border: '1px solid #E2E8F0', borderRadius: '10px' }}>
-                <Table size="small">
+              <TableContainer sx={{ border: '1px solid #E2E8F0', borderRadius: '10px', overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+                <Table size="small" sx={{ minWidth: { xs: 620, sm: '100%' } }}>
                   <TableHead>
                     <TableRow sx={{ backgroundColor: '#F8FAFC' }}>
                       <TableCell sx={{ fontWeight: 700, color: '#1E293B', width: '35px', textAlign: 'center' }}>#</TableCell>
