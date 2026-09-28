@@ -19,8 +19,6 @@ import {
   Divider,
   Chip,
   InputAdornment,
-  Checkbox,
-  FormControlLabel,
   Snackbar,
   Alert,
 } from '@mui/material';
@@ -120,10 +118,6 @@ export const GstBillPage: FC = () => {
   const [despatchTo, setDespatchTo] = useState<string>('');
   const [transport, setTransport] = useState<string>('');
   const [transportGstin, setTransportGstin] = useState<string>('');
-  const [deliverySameAsBilling, setDeliverySameAsBilling] = useState<boolean>(false);
-  const [deliveryName, setDeliveryName] = useState<string>('');
-  const [deliveryAddress, setDeliveryAddress] = useState<string>('');
-  const [deliveryAadhar, setDeliveryAadhar] = useState<string>('');
   const [discountPercent, setDiscountPercent] = useState<string>('0.00');
   const [packingPercent, setPackingPercent] = useState<string>('0.00');
   // Sales Turnover Tracking (Persistent baseline across bills)
@@ -267,10 +261,6 @@ export const GstBillPage: FC = () => {
     setDespatchTo('');
     setTransport('');
     setTransportGstin('');
-    setDeliverySameAsBilling(false);
-    setDeliveryName('');
-    setDeliveryAddress('');
-    setDeliveryAadhar('');
     setDiscountPercent('0.00');
     setPackingPercent('0.00');
     setPlaceOfSupply('Tamil Nadu (33)');
@@ -378,9 +368,6 @@ export const GstBillPage: FC = () => {
         setCustomerAddress(matched.address || '');
         setCustomerAadhar(matched.aadhar || '');
         setDespatchTo(matched.address || '');
-        setDeliveryName(matched.name);
-        setDeliveryAddress(matched.address || '');
-        setDeliveryAadhar(matched.aadhar || '');
         if (matched.gst) {
           setCustomerGst(matched.gst);
           const stateCode = matched.gst.slice(0, 2);
@@ -403,9 +390,6 @@ export const GstBillPage: FC = () => {
       setCustomerAddress(value.address || '');
       setCustomerAadhar(value.aadhar || '');
       setDespatchTo(value.address || '');
-      setDeliveryName(value.name);
-      setDeliveryAddress(value.address || '');
-      setDeliveryAadhar(value.aadhar || '');
       if (value.gst) {
         setCustomerGst(value.gst);
         const stateCode = value.gst.slice(0, 2);
@@ -423,9 +407,6 @@ export const GstBillPage: FC = () => {
       setCustomerGst('');
       setCustomerAadhar('');
       setDespatchTo('');
-      setDeliveryName('');
-      setDeliveryAddress('');
-      setDeliveryAadhar('');
       setPlaceOfSupply('Tamil Nadu (33)');
     }
   };
@@ -539,7 +520,6 @@ export const GstBillPage: FC = () => {
 
   // Prepare Bill Object for print and save
   const buildCurrentGstBillData = (): GstBillPrintData => {
-    const isDelivSame = deliverySameAsBilling;
     return {
       billNo,
       date: formatDisplayDate(billDate),
@@ -548,9 +528,9 @@ export const GstBillPage: FC = () => {
       customerAddress: customerAddress || '',
       customerGst: customerGst || '',
       customerAadhar: customerAadhar || '',
-      deliveryName: isDelivSame ? customerName : (deliveryName || ''),
-      deliveryAddress: isDelivSame ? customerAddress : (deliveryAddress || ''),
-      deliveryAadhar: isDelivSame ? customerAadhar : (deliveryAadhar || ''),
+      deliveryName: customerName || '',
+      deliveryAddress: customerAddress || '',
+      deliveryAadhar: customerAadhar || '',
       placeOfSupply,
       reverseCharge: 'No',
       vehicleNo: '',
@@ -1323,60 +1303,6 @@ export const GstBillPage: FC = () => {
                   </Box>
                 </Grid>
 
-                {/* Same as Buyer Checkbox */}
-                <Grid size={{ xs: 12 }}>
-                  <Divider sx={{ my: 0.5 }} />
-                  <FormControlLabel
-                    control={
-                      <Checkbox
-                        checked={deliverySameAsBilling}
-                        onChange={(e) => setDeliverySameAsBilling(e.target.checked)}
-                        sx={{ color: '#DC2626', '&.Mui-checked': { color: '#DC2626' } }}
-                      />
-                    }
-                    label={
-                      <Typography sx={{ fontSize: '13px', fontWeight: 700, color: '#1E293B' }}>
-                        Delivery To Details are identical to Customer (To) Details
-                      </Typography>
-                    }
-                  />
-                </Grid>
-
-                {/* Custom Delivery Fields when unchecked */}
-                {!deliverySameAsBilling && (
-                  <>
-                    <Grid size={{ xs: 12, sm: 4 }}>
-                      <TextField
-                        fullWidth
-                        size="small"
-                        label="Delivery Name"
-                        value={deliveryName}
-                        onChange={(e) => setDeliveryName(e.target.value)}
-                        placeholder="Receiver Name"
-                      />
-                    </Grid>
-                    <Grid size={{ xs: 12, sm: 4 }}>
-                      <TextField
-                        fullWidth
-                        size="small"
-                        label="Delivery Address / City"
-                        value={deliveryAddress}
-                        onChange={(e) => setDeliveryAddress(e.target.value)}
-                        placeholder="Delivery Location"
-                      />
-                    </Grid>
-                    <Grid size={{ xs: 12, sm: 4 }}>
-                      <TextField
-                        fullWidth
-                        size="small"
-                        label="Delivery AADHAR / PAN"
-                        value={deliveryAadhar}
-                        onChange={(e) => setDeliveryAadhar(e.target.value)}
-                        placeholder="AADHAR / PAN"
-                      />
-                    </Grid>
-                  </>
-                )}
               </Grid>
             </Paper>
 

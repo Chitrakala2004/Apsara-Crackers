@@ -188,12 +188,12 @@ export const GstBillPrintTemplate: React.FC<GstBillPrintTemplateProps> = ({ bill
   const customerAadharOrPan = (bill.customerAadhar || bill.customerPan || bill.customerGst || '').trim();
 
   // Delivery To Details
-  const rawDeliveryName = (bill.deliveryName || '').trim();
+  const rawDeliveryName = (bill.deliveryName || bill.customerName || '').trim();
   const deliveryDisplayName = rawDeliveryName ? (rawDeliveryName.toLowerCase().startsWith('m/s') ? rawDeliveryName : `M/s. ${rawDeliveryName}`) : '';
   const deliveryAddressFormatted = bill.deliveryAddress && bill.deliveryAddress !== 'N/A' && bill.deliveryAddress !== '-'
     ? bill.deliveryAddress
-    : '';
-  const deliveryAadharOrPan = (bill.deliveryAadhar || '').trim();
+    : customerAddressFormatted;
+  const deliveryAadharOrPan = (bill.deliveryAadhar || customerAadharOrPan || '').trim();
 
   // Despatch Details
   const despatchFrom = bill.despatchFrom || '';
@@ -412,23 +412,19 @@ export const GstBillPrintTemplate: React.FC<GstBillPrintTemplateProps> = ({ bill
                   lineHeight: 1.35,
                 }}
               >
-                {(deliveryDisplayName || deliveryAddressFormatted || deliveryAadharOrPan) ? (
-                  <>
-                    <div style={{ fontWeight: 600, marginBottom: '2px' }}>Delivery To Details:</div>
-                    {deliveryDisplayName ? (
-                      <div style={{ fontWeight: 700, fontSize: '12px', marginBottom: '2px' }}>
-                        {deliveryDisplayName}
-                      </div>
-                    ) : null}
-                    {deliveryAddressFormatted ? (
-                      <div style={{ marginBottom: '2px' }}>{deliveryAddressFormatted}</div>
-                    ) : null}
-                    {deliveryAadharOrPan ? (
-                      <div style={{ marginTop: '4px', fontWeight: 600 }}>
-                        AADHAR/PAN No : {deliveryAadharOrPan}
-                      </div>
-                    ) : null}
-                  </>
+                <div style={{ fontWeight: 600, marginBottom: '2px' }}>Delivery To Details:</div>
+                {deliveryDisplayName ? (
+                  <div style={{ fontWeight: 700, fontSize: '12px', marginBottom: '2px' }}>
+                    {deliveryDisplayName}
+                  </div>
+                ) : null}
+                {deliveryAddressFormatted ? (
+                  <div style={{ marginBottom: '2px' }}>{deliveryAddressFormatted}</div>
+                ) : null}
+                {deliveryAadharOrPan ? (
+                  <div style={{ marginTop: '4px', fontWeight: 600 }}>
+                    AADHAR/PAN No : {deliveryAadharOrPan}
+                  </div>
                 ) : null}
               </td>
 
