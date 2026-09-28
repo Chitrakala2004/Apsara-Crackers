@@ -114,8 +114,8 @@ export const GstBillPage: FC = () => {
   const [rate, setRate] = useState<string>('0');
 
   // Additional Invoice Fields
-  const [despatchFrom, setDespatchFrom] = useState<string>('');
-  const [despatchTo, setDespatchTo] = useState<string>('');
+  const [dispatchFrom, setDispatchFrom] = useState<string>('');
+  const [dispatchTo, setDispatchTo] = useState<string>('');
   const [transport, setTransport] = useState<string>('');
   const [transportGstin, setTransportGstin] = useState<string>('');
   const [discountPercent, setDiscountPercent] = useState<string>('0.00');
@@ -128,7 +128,7 @@ export const GstBillPage: FC = () => {
     return localStorage.getItem('apsara_gst_turnover_current') || storeSettings.gstTurnoverCurrent || '0.00';
   });
   const [turnoverSnackbar, setTurnoverSnackbar] = useState<string>('');
-  const [hsnNo, setHsnNo] = useState<string>('3604');
+  const [hsnNo] = useState<string>('3604');
 
   // Line items list
   const [productRows, setProductRows] = useState<GstProductItem[]>([]);
@@ -257,8 +257,8 @@ export const GstBillPage: FC = () => {
     setCustomerAddress('');
     setCustomerGst('');
     setCustomerAadhar('');
-    setDespatchFrom('');
-    setDespatchTo('');
+    setDispatchFrom('');
+    setDispatchTo('');
     setTransport('');
     setTransportGstin('');
     setDiscountPercent('0.00');
@@ -266,7 +266,6 @@ export const GstBillPage: FC = () => {
     setPlaceOfSupply('Tamil Nadu (33)');
     setSelectedProduct('');
     setHsnCode('3604');
-    setHsnNo('3604');
     setQuantity('1');
     setUnit('Case');
     setRate('0');
@@ -367,7 +366,7 @@ export const GstBillPage: FC = () => {
         setCustomerPhone(matched.mobile || '');
         setCustomerAddress(matched.address || '');
         setCustomerAadhar(matched.aadhar || '');
-        setDespatchTo(matched.address || '');
+        setDispatchTo(matched.address || '');
         if (matched.gst) {
           setCustomerGst(matched.gst);
           const stateCode = matched.gst.slice(0, 2);
@@ -389,7 +388,7 @@ export const GstBillPage: FC = () => {
       setCustomerPhone(value.mobile || '');
       setCustomerAddress(value.address || '');
       setCustomerAadhar(value.aadhar || '');
-      setDespatchTo(value.address || '');
+      setDispatchTo(value.address || '');
       if (value.gst) {
         setCustomerGst(value.gst);
         const stateCode = value.gst.slice(0, 2);
@@ -406,7 +405,7 @@ export const GstBillPage: FC = () => {
       setCustomerAddress('');
       setCustomerGst('');
       setCustomerAadhar('');
-      setDespatchTo('');
+      setDispatchTo('');
       setPlaceOfSupply('Tamil Nadu (33)');
     }
   };
@@ -419,7 +418,7 @@ export const GstBillPage: FC = () => {
       setSelectedProduct(value.name);
       if (value.rate) setRate(String(value.rate));
       if (value.unit) setUnit(value.unit);
-      if (value.hsn) setHsnCode(value.hsn);
+      setHsnCode('3604');
     } else {
       setSelectedProduct('');
     }
@@ -537,12 +536,14 @@ export const GstBillPage: FC = () => {
       ewayBillNo: '',
       transport: transport || '',
       transportGstin: transportGstin || '',
-      despatchFrom: despatchFrom || '',
-      despatchTo: despatchTo || '',
+      dispatchFrom: dispatchFrom || '',
+      dispatchTo: dispatchTo || '',
+      despatchFrom: dispatchFrom || '',
+      despatchTo: dispatchTo || '',
       caseCount: lineCalculations.totalCases,
       companyName: 'APSARA TRADERS',
       gstin: storeSettings.gstin || '33ABFFA6758B1ZP',
-      hsnNo: hsnNo || hsnCode || '3604',
+      hsnNo: '3604',
       products: lineCalculations.computedRows,
       subtotal: lineCalculations.taxableTotal,
       discount: lineCalculations.discountAmount,
@@ -589,8 +590,10 @@ export const GstBillPage: FC = () => {
         ewayBillNo: billData.ewayBillNo,
         transport: billData.transport,
         transportGstin: billData.transportGstin,
-        despatchFrom: billData.despatchFrom,
-        despatchTo: billData.despatchTo,
+        dispatchFrom: billData.dispatchFrom || billData.despatchFrom,
+        dispatchTo: billData.dispatchTo || billData.despatchTo,
+        despatchFrom: billData.dispatchFrom || billData.despatchFrom,
+        despatchTo: billData.dispatchTo || billData.despatchTo,
         deliveryName: billData.deliveryName,
         deliveryAddress: billData.deliveryAddress,
         deliveryAadhar: billData.deliveryAadhar,
@@ -1133,9 +1136,9 @@ export const GstBillPage: FC = () => {
                   <TextField
                     fullWidth
                     size="small"
-                    label="Despatch From"
-                    value={despatchFrom}
-                    onChange={(e) => setDespatchFrom(e.target.value)}
+                    label="Dispatch From"
+                    value={dispatchFrom}
+                    onChange={(e) => setDispatchFrom(e.target.value)}
                     placeholder="e.g. SIVAKASI"
                   />
                 </Grid>
@@ -1143,9 +1146,9 @@ export const GstBillPage: FC = () => {
                   <TextField
                     fullWidth
                     size="small"
-                    label="Despatch To"
-                    value={despatchTo}
-                    onChange={(e) => setDespatchTo(e.target.value)}
+                    label="Dispatch To"
+                    value={dispatchTo}
+                    onChange={(e) => setDispatchTo(e.target.value)}
                     placeholder="e.g. Destination"
                   />
                 </Grid>
@@ -1176,7 +1179,20 @@ export const GstBillPage: FC = () => {
                     size="small"
                     label="HSN Code (Fixed)"
                     value={hsnNo}
-                    onChange={(e) => setHsnNo(e.target.value)}
+                    disabled
+                    slotProps={{
+                      input: {
+                        readOnly: true,
+                      },
+                    }}
+                    sx={{
+                      '& .MuiInputBase-input.Mui-disabled': {
+                        WebkitTextFillColor: '#1E293B',
+                        fontWeight: 700,
+                        backgroundColor: '#F1F5F9',
+                        cursor: 'not-allowed',
+                      },
+                    }}
                     placeholder="3604"
                   />
                 </Grid>
@@ -1197,7 +1213,7 @@ export const GstBillPage: FC = () => {
               >
                 <CheckCircleOutlineRoundedIcon sx={{ fontSize: 20, color: '#1D4ED8' }} />
                 <Typography sx={{ fontSize: '12.5px', fontWeight: 600, color: '#1E40AF' }}>
-                  Composition Scheme GST Bill (Section 10 of GST Act 2017) • Despatch From {despatchFrom} to {despatchTo || customerAddress || '-'}
+                  Composition Scheme GST Bill (Section 10 of GST Act 2017) • Dispatch From {dispatchFrom || 'Sivakasi'} to {dispatchTo || customerAddress || '-'}
                 </Typography>
               </Box>
             </Paper>

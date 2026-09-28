@@ -600,8 +600,8 @@ export const generateGstBillHtml = (bill: GstBillPrintData, copiesCount: number 
     : customerAddressFormatted;
   const deliveryAadharOrPan = (bill.deliveryAadhar || customerAadharOrPan || '').trim();
 
-  const despatchFrom = bill.despatchFrom || '';
-  const despatchTo = bill.despatchTo || '';
+  const dispatchFrom = bill.dispatchFrom || bill.despatchFrom || '';
+  const dispatchTo = bill.dispatchTo || bill.despatchTo || '';
   const transportName = (bill.transport && bill.transport !== '-' && bill.transport !== '0')
     ? bill.transport
     : '';
@@ -817,20 +817,20 @@ export const generateGstBillHtml = (bill: GstBillPrintData, copiesCount: number 
           </tbody>
         </table>
 
-        <!-- Bottom Split Section: Despatch Left | Totals Right -->
+        <!-- Bottom Split Section: Dispatch Left | Totals Right -->
         <table style="width: 100%; border-collapse: collapse; border-bottom: 1.5px solid #000000; font-size: 11.5px;">
           <tbody>
             <tr>
-              <!-- Left Column: Despatch, Transport, HSN, Total Cases -->
+              <!-- Left Column: Dispatch, Transport, HSN, Total Cases -->
               <td style="width: 58%; border-right: 1.5px solid #000000; padding: 6px 8px; vertical-align: top; line-height: 1.45;">
                 <table style="width: 100%; border-collapse: collapse;">
                   <tbody>
                     <tr>
                       <td style="padding: 1px 0; width: 50%;">
-                        Despatch From &nbsp;: &nbsp;<strong>${despatchFrom}</strong>
+                        Dispatch From &nbsp;: &nbsp;<strong>${dispatchFrom}</strong>
                       </td>
                       <td style="padding: 1px 0; width: 50%;">
-                        To &nbsp;: &nbsp;<strong>${despatchTo}</strong>
+                        To &nbsp;: &nbsp;<strong>${dispatchTo}</strong>
                       </td>
                     </tr>
                     <tr>

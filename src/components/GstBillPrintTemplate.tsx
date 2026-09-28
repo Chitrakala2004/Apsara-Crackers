@@ -41,6 +41,8 @@ export interface GstBillPrintData {
   ewayBillNo?: string;
   transport?: string;
   transportGstin?: string;
+  dispatchFrom?: string;
+  dispatchTo?: string;
   despatchFrom?: string;
   despatchTo?: string;
   caseCount?: string | number;
@@ -195,9 +197,9 @@ export const GstBillPrintTemplate: React.FC<GstBillPrintTemplateProps> = ({ bill
     : customerAddressFormatted;
   const deliveryAadharOrPan = (bill.deliveryAadhar || customerAadharOrPan || '').trim();
 
-  // Despatch Details
-  const despatchFrom = bill.despatchFrom || '';
-  const despatchTo = bill.despatchTo || '';
+  // Dispatch Details
+  const dispatchFrom = bill.dispatchFrom || bill.despatchFrom || '';
+  const dispatchTo = bill.dispatchTo || bill.despatchTo || '';
   const transportName = (bill.transport && bill.transport !== '-' && bill.transport !== '0')
     ? bill.transport
     : '';
@@ -707,7 +709,7 @@ export const GstBillPrintTemplate: React.FC<GstBillPrintTemplateProps> = ({ bill
           </tbody>
         </table>
 
-        {/* Bottom Split Section: Despatch Left | Totals Right */}
+        {/* Bottom Split Section: Dispatch Left | Totals Right */}
         <table
           style={{
             width: '100%',
@@ -718,7 +720,7 @@ export const GstBillPrintTemplate: React.FC<GstBillPrintTemplateProps> = ({ bill
         >
           <tbody>
             <tr>
-              {/* Left Column: Despatch, Transport, HSN, Total Cases */}
+              {/* Left Column: Dispatch, Transport, HSN, Total Cases */}
               <td
                 style={{
                   width: '58%',
@@ -732,10 +734,10 @@ export const GstBillPrintTemplate: React.FC<GstBillPrintTemplateProps> = ({ bill
                   <tbody>
                     <tr>
                       <td style={{ padding: '1px 0', width: '50%' }}>
-                        Despatch From &nbsp;: &nbsp;<strong>{despatchFrom}</strong>
+                        Dispatch From &nbsp;: &nbsp;<strong>{dispatchFrom}</strong>
                       </td>
                       <td style={{ padding: '1px 0', width: '50%' }}>
-                        To &nbsp;: &nbsp;<strong>{despatchTo}</strong>
+                        To &nbsp;: &nbsp;<strong>{dispatchTo}</strong>
                       </td>
                     </tr>
                     <tr>
