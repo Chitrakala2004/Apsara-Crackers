@@ -140,8 +140,13 @@ export const PriceListsApi = {
 
 // Particulars API
 export const ParticularsApi = {
-  getAll: (customerName?: string) =>
-    request<any[]>(`/particulars${customerName && customerName !== 'ALL' ? `?customerName=${encodeURIComponent(customerName)}` : ''}`),
+  getAll: (customerName?: string, billType?: 'REGULAR' | 'GST' | 'ALL') => {
+    const params = new URLSearchParams();
+    if (customerName && customerName !== 'ALL') params.append('customerName', customerName);
+    if (billType && billType !== 'ALL') params.append('billType', billType);
+    const qs = params.toString();
+    return request<any[]>(`/particulars${qs ? `?${qs}` : ''}`);
+  },
   getNextBillNo: (type?: string) =>
     request<{ nextBillNo: string }>(`/particulars/next-bill-no${type ? `?type=${encodeURIComponent(type)}` : ''}`),
   getById: (id: string) => request<any>(`/particulars/${id}`),

@@ -283,7 +283,7 @@ export const ParticularsPage: FC<ParticularsPageProps> = ({ initialCustomerName,
   // Fetch Next Bill Number
   const fetchNextBillNo = async () => {
     try {
-      const res = await ParticularsApi.getNextBillNo();
+      const res = await ParticularsApi.getNextBillNo('REGULAR');
       if (res?.nextBillNo) {
         setBillNo(res.nextBillNo);
       } else {
@@ -469,6 +469,7 @@ export const ParticularsPage: FC<ParticularsPageProps> = ({ initialCustomerName,
         tax: isTaxEnabled ? (tax || '0') : '0',
         amount: String(subtotal.toFixed(2)),
         total: String(grandTotal.toFixed(2)),
+        billType: 'REGULAR',
         products: productRows.map((r) => ({
           particular: r.particular,
           quantity: r.quantity,

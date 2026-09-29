@@ -299,9 +299,9 @@ export const GstBillPage: FC = () => {
 
       let remoteBills: any[] = [];
       try {
-        const res = await ParticularsApi.getAll();
+        const res = await ParticularsApi.getAll(undefined, 'GST');
         if (Array.isArray(res)) {
-          remoteBills = res.filter((b: any) => b.billType === 'GST' || (b.billNo && b.billNo.startsWith('GST')));
+          remoteBills = res.filter((b: any) => b.billType === 'GST' || (b.billNo && String(b.billNo).toUpperCase().startsWith('GST')));
         }
       } catch (err) {
         console.warn('Could not fetch GST bills from API', err);

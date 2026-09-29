@@ -159,8 +159,11 @@ export const AllCustomersPage: FC<AllCustomersPageProps> = ({
   const fetchRecentBills = async () => {
     try {
       setLoadingRecentBills(true);
-      const bills = await ParticularsApi.getAll();
-      setRecentBills(Array.isArray(bills) ? bills : []);
+      const bills = await ParticularsApi.getAll(undefined, 'REGULAR');
+      const regularBills = (Array.isArray(bills) ? bills : []).filter(
+        (b: any) => b.billType !== 'GST' && !(b.billNo && String(b.billNo).toUpperCase().startsWith('GST'))
+      );
+      setRecentBills(regularBills);
     } catch (err) {
       console.error('Failed to fetch recent bills:', err);
     } finally {
