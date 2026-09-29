@@ -486,12 +486,15 @@ export const ParticularsPage: FC<ParticularsPageProps> = ({ initialCustomerName,
       }
 
       if (actionType === 'print' || actionType === 'share') {
+        const matchingCustomer = customerOptions.find((c) => c.name.toLowerCase() === payload.customerName.toLowerCase());
         const printData: BillPrintData = {
           billNo: payload.billNo,
           date: payload.date,
           customerName: payload.customerName,
           customerPhone: payload.customerPhone,
           customerAddress: payload.customerAddress,
+          customerGst: matchingCustomer?.gst,
+          customerPan: matchingCustomer?.gst,
           companyName: payload.companyName,
           transport: payload.transport,
           caseCount: payload.caseCount,
@@ -501,6 +504,8 @@ export const ParticularsPage: FC<ParticularsPageProps> = ({ initialCustomerName,
           amount: payload.amount,
           total: payload.total,
           products: payload.products,
+          dispatchFrom: 'Sivakasi',
+          dispatchTo: payload.customerAddress || '',
         };
         if (actionType === 'print') {
           printBillDirectly(printData);

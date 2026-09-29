@@ -54,27 +54,68 @@ export const isDateInRange = (dateStr: string, fromDateStr: string, toDateStr: s
   return true;
 };
 
-export const generateBillHtml = (bill: BillPrintData): string => {
-  // Calculate Subtotal from Products or bill.amount
-  const prodSubtotal = (bill.products || []).reduce((acc, p) => {
-    const amt = parseFloat(String(p.amount).replace(/,/g, '')) || 0;
+export const generateBillHtml = (bill: BillPrintData, copiesCount: number = 1): string => {
+  const storeSettings = getStoredSettings();
+  const rawComp =
+    bill.companyName && bill.companyName.trim() !== '' && bill.companyName !== 'General'
+      ? bill.companyName
+      : storeSettings.companyName || 'APSARA TRADERS';
+  const displayCompanyName =
+    rawComp.toUpperCase().includes('VARUN') || rawComp.toUpperCase().includes('DHEEKSHA')
+      ? 'APSARA TRADERS'
+      : (rawComp.toUpperCase().includes('APSARA') ? 'APSARA TRADERS' : rawComp.toUpperCase());
+
+  const formatCur = (val: string | number | undefined | null) => {
+    if (val === undefined || val === null || val === '') return '0.00';
+    const num = typeof val === 'number' ? val : parseFloat(String(val).replace(/,/g, '')) || 0;
+    return num.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  };
+
+  const products = bill.products || [];
+  const prodSubtotal = products.reduce((acc, p) => {
+    const q = parseFloat(String(p.quantity || 0)) || 0;
+    const r = parseFloat(String(p.rate || 0)) || 0;
+    const amt = p.amount ? parseFloat(String(p.amount).replace(/,/g, '')) : q * r;
     return acc + amt;
   }, 0);
-  const subtotal = prodSubtotal > 0 ? prodSubtotal : (parseFloat(String(bill.amount || bill.total || '0').replace(/,/g, '')) || 0);
+  const subtotal = prodSubtotal > 0 ? prodSubtotal : (parseFloat(String(bill.subtotal || bill.amount || bill.total || 0).replace(/,/g, '')) || 0);
 
   // Discount calculation
-  const rawDiscStr = String(bill.discount ?? '').trim();
-  const cleanDisc = rawDiscStr.replace(/[^0-9.]/g, '');
-  const discNum = parseFloat(cleanDisc) || 0;
-  let discountAmt = 0;
-  let discountLabel = 'Discount';
-  if (discNum > 0) {
-    if (rawDiscStr.includes('%') || (discNum <= 100 && !rawDiscStr.startsWith('₹'))) {
-      discountAmt = (subtotal * discNum) / 100;
-      discountLabel = `Discount (${discNum}%)`;
+  let discountPercent = '0.00';
+  let discountAmount = 0;
+  if (bill.discountPercent !== undefined && bill.discountPercent !== null && bill.discountPercent !== '') {
+    const dPct = parseFloat(String(bill.discountPercent)) || 0;
+    discountPercent = dPct.toFixed(2);
+    discountAmount = (subtotal * dPct) / 100;
+  } else if (bill.discount !== undefined && bill.discount !== null && bill.discount !== '') {
+    const rawDisc = String(bill.discount).trim();
+    const dVal = parseFloat(rawDisc.replace(/[^0-9.]/g, '')) || 0;
+    if (rawDisc.includes('%') || (dVal > 0 && dVal <= 100 && !rawDisc.startsWith('₹'))) {
+      discountPercent = dVal.toFixed(2);
+      discountAmount = (subtotal * dVal) / 100;
     } else {
-      discountAmt = discNum;
-      discountLabel = `Discount (₹${discNum.toFixed(2)})`;
+      discountAmount = dVal;
+      discountPercent = subtotal > 0 ? ((discountAmount / subtotal) * 100).toFixed(2) : '0.00';
+    }
+  }
+
+  // Packing & Forwarding (P & F CHGS)
+  let packingPercent = '0.00';
+  let packingAmount = 0;
+  if (bill.packingPercent !== undefined && bill.packingPercent !== null && bill.packingPercent !== '') {
+    const pPct = parseFloat(String(bill.packingPercent)) || 0;
+    packingPercent = pPct.toFixed(2);
+    packingAmount = (subtotal * pPct) / 100;
+  } else if ((bill.packingCharges !== undefined && bill.packingCharges !== null && bill.packingCharges !== '') ||
+             (bill.packing !== undefined && bill.packing !== null && bill.packing !== '')) {
+    const rawPack = String(bill.packingCharges ?? bill.packing).trim();
+    const pVal = parseFloat(rawPack.replace(/[^0-9.]/g, '')) || 0;
+    if (rawPack.includes('%')) {
+      packingPercent = pVal.toFixed(2);
+      packingAmount = (subtotal * pVal) / 100;
+    } else {
+      packingAmount = pVal;
+      packingPercent = subtotal > 0 ? ((packingAmount / subtotal) * 100).toFixed(2) : '0.00';
     }
   }
 
@@ -83,119 +124,396 @@ export const generateBillHtml = (bill: BillPrintData): string => {
   const cleanTrans = rawTransportStr.replace(/[^0-9.]/g, '');
   const transNum = parseFloat(cleanTrans) || 0;
   const transportAmt = (!isNaN(Number(rawTransportStr)) && transNum > 0) ? transNum : 0;
-  const transportDisplayName = (!rawTransportStr || rawTransportStr === '0' || rawTransportStr === '-') ? '-' : rawTransportStr;
-
-  // Packing calculation - amount by default, only percentage if explicitly formatted with %
-  const rawPackStr = String(bill.packing ?? '').trim();
-  const cleanPack = rawPackStr.replace(/[^0-9.]/g, '');
-  const packNum = parseFloat(cleanPack) || 0;
-  let packingAmt = 0;
-  let packingLabel = 'Packing Charges';
-  if (packNum > 0) {
-    if (rawPackStr.includes('%')) {
-      packingAmt = (subtotal * packNum) / 100;
-      packingLabel = `Packing Charges (${packNum}%)`;
-    } else {
-      packingAmt = packNum;
-      packingLabel = `Packing Charges`;
-    }
-  }
+  const transportDisplayName = (!rawTransportStr || rawTransportStr === '0' || rawTransportStr === '-') ? '' : rawTransportStr;
 
   // Tax calculation
   const rawTaxStr = String(bill.tax ?? '').trim();
   const cleanTax = rawTaxStr.replace(/[^0-9.]/g, '');
-  const taxNum = parseFloat(cleanTax) || 0;
-  let taxAmt = 0;
-  let taxLabel = 'GST / Tax';
-  if (taxNum > 0) {
-    const baseForTax = Math.max(0, subtotal - discountAmt + transportAmt + packingAmt);
-    taxAmt = (baseForTax * taxNum) / 100;
-    taxLabel = `GST / Tax (${taxNum}%)`;
-  }
+  const taxRate = parseFloat(cleanTax) || 0;
 
-  // Grand Total calculation
-  const calculatedTotal = Math.max(0, subtotal - discountAmt + transportAmt + packingAmt + taxAmt);
-  const rawTotalNum = parseFloat(String(bill.total ?? bill.amount ?? '0').replace(/,/g, '')) || 0;
-  const finalTotalNum = rawTotalNum > 0 ? rawTotalNum : calculatedTotal;
-  const formattedTotal = '₹' + finalTotalNum.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  // Value of Goods
+  const valueOfGoods = Math.max(0, subtotal - discountAmount + packingAmount + transportAmt);
+  const taxAmount = taxRate > 0 ? (valueOfGoods * taxRate) / 100 : 0;
 
-  const computedCases = bill.caseCount !== undefined && bill.caseCount !== ''
-    ? bill.caseCount
-    : (bill.products || []).reduce((acc, p) => acc + (parseFloat(String(p.quantity)) || 0), 0);
+  // Grand Total & Round Off
+  const rawTotalNum = parseFloat(String(bill.total || 0).replace(/,/g, '')) || 0;
+  const calculatedTotal = valueOfGoods + taxAmount;
+  const grandTotalNum = rawTotalNum > 0 ? rawTotalNum : Math.round(calculatedTotal);
+  const roundOffNum = bill.roundOff !== undefined && bill.roundOff !== null && bill.roundOff !== ''
+    ? (parseFloat(String(bill.roundOff)) || 0)
+    : (grandTotalNum - calculatedTotal);
 
-  const storeSettings = getStoredSettings();
-  const rawComp =
-    bill.companyName &&
-    bill.companyName.trim() !== '' &&
-    bill.companyName !== 'General'
-      ? bill.companyName
-      : storeSettings.companyName || 'Apsara Crackers';
-  const displayCompanyName =
-    rawComp.toLowerCase().includes('varun') || rawComp.toLowerCase().includes('dheeksha')
-      ? (storeSettings.companyName || 'Apsara Crackers')
-      : rawComp;
+  const totalQtyComputed = products.reduce((acc, p) => acc + (parseFloat(String(p.quantity || 0)) || 0), 0);
 
+  const rawCustName = (bill.customerName || '').trim();
+  const customerDisplayName = rawCustName ? (rawCustName.toLowerCase().startsWith('m/s') ? rawCustName : `M/s. ${rawCustName}`) : '';
+  const customerAddressFormatted = bill.customerAddress && bill.customerAddress !== 'N/A' && bill.customerAddress !== '-'
+    ? bill.customerAddress
+    : '';
+  const customerAadharOrPan = (bill.customerAadhar || bill.customerPan || bill.customerGst || '').trim();
+
+  const rawDeliveryName = (bill.deliveryName || bill.customerName || '').trim();
+  const deliveryDisplayName = rawDeliveryName ? (rawDeliveryName.toLowerCase().startsWith('m/s') ? rawDeliveryName : `M/s. ${rawDeliveryName}`) : '';
+  const deliveryAddressFormatted = bill.deliveryAddress && bill.deliveryAddress !== 'N/A' && bill.deliveryAddress !== '-'
+    ? bill.deliveryAddress
+    : customerAddressFormatted;
+  const deliveryAadharOrPan = (bill.deliveryAadhar || customerAadharOrPan || '').trim();
+
+  const dispatchFrom = bill.dispatchFrom || bill.despatchFrom || 'Sivakasi';
+  const dispatchTo = bill.dispatchTo || bill.despatchTo || bill.customerCity || '';
+
+  const rawWords = numberToIndianWords(grandTotalNum);
+  const wordsClean = rawWords
+    .replace(/\s*Rupees\s*/i, ' ')
+    .replace(/\s*Only\s*/i, '')
+    .trim();
+
+  const spacerMinHeight = Math.max(80, 520 - products.length * 26);
+
+  const origin = typeof window !== 'undefined' ? window.location.origin : '';
+  const ganeshaImgUrl = `${origin}/ganesha.jpg`;
+  const apsaraImgUrl = `${origin}/apsara_logo.jpg`;
+
+  const copyLabels = ['ORIGINAL', 'DUPLICATE', 'TRIPLICATE', 'EXTRA COPY'];
+  const invoiceTitle = bill.invoiceTitle || (taxRate > 0 ? 'TAX INVOICE' : 'ESTIMATE');
   const receiptSrc = bill.pdfData || bill.pdfUrl || '';
 
-  // Full store address line
-  const defaultAddress = '67 - H/E, Rajivgandhi Nagar, Near Ramji Polypack, Sivakasi Bus Stand , Sivakasi';
-  const rawAddress = (storeSettings.address && storeSettings.address.trim())
-    ? storeSettings.address.trim()
-    : defaultAddress;
-  const cleanAddress = (rawAddress.toLowerCase().includes('tirupur') || rawAddress.toLowerCase().includes('varun'))
-    ? defaultAddress
-    : rawAddress;
-  const addressParts: string[] = [cleanAddress];
-  if (storeSettings.pincode && storeSettings.pincode.trim() && !cleanAddress.includes(storeSettings.pincode.trim())) {
-    addressParts.push(`PIN: ${storeSettings.pincode.trim()}`);
-  }
-  const fullAddressLine = addressParts.join(' - ');
-
-  // Contact line (Phone numbers: 9843067073, 8778429299)
-  const phone1 = (storeSettings.phone && !storeSettings.phone.includes('98765')) ? storeSettings.phone.trim() : '9843067073';
-  const phone2 = (storeSettings.whatsapp && !storeSettings.whatsapp.includes('98765')) ? storeSettings.whatsapp.trim() : '8778429299';
-  const phoneNumbersList = Array.from(new Set([phone1, phone2].filter(Boolean))).join(', ');
-  const contactParts: string[] = [`Cell: ${phoneNumbersList}`];
-  if (storeSettings.email && storeSettings.email.trim()) {
-    contactParts.push(`Email: ${storeSettings.email.trim()}`);
-  }
-  const contactLine = contactParts.join(' | ');
-
-  // Tax / Registration line (GSTIN, PAN)
-  const taxParts: string[] = [];
-  if (storeSettings.gstin && storeSettings.gstin.trim()) {
-    taxParts.push(`GSTIN: ${storeSettings.gstin.trim()}`);
-  }
-  if (storeSettings.pan && storeSettings.pan.trim()) {
-    taxParts.push(`PAN: ${storeSettings.pan.trim()}`);
-  }
-  const taxLine = taxParts.join(' | ');
-
-  const productRowsHtml = (bill.products || []).map((item, idx) => {
-    const numAmt = parseFloat(String(item.amount).replace(/,/g, '')) || 0;
-    const numRate = parseFloat(String(item.rate).replace(/,/g, '')) || 0;
-    return `
-      <tr>
-        <td style="border: 1px solid #000000; padding: 6px 8px; text-align: center;">${idx + 1}</td>
-        <td style="border: 1px solid #000000; padding: 6px 8px; text-align: left; font-weight: 600;">${item.particular || '-'}</td>
-        <td style="border: 1px solid #000000; padding: 6px 8px; text-align: center;">${item.quantity || '-'}</td>
-        <td style="border: 1px solid #000000; padding: 6px 8px; text-align: right;">${numRate > 0 ? numRate.toFixed(2) : (item.rate || '-')}</td>
-        <td style="border: 1px solid #000000; padding: 6px 8px; text-align: center;">${item.pktUnit && item.pktUnit !== '-' ? item.pktUnit : ''}</td>
-        <td style="border: 1px solid #000000; padding: 6px 8px; text-align: right; font-weight: 700;">${numAmt.toFixed(2)}</td>
+  const productRowsHtml = products.length === 0
+    ? `
+      <tr style="vertical-align: top;">
+        <td style="border-right: 1px solid #000000; text-align: center; padding: 5px 4px;">1</td>
+        <td style="border-right: 1px solid #000000; padding: 5px 8px; font-weight: 600;">Assorted Crackers</td>
+        <td style="border-right: 1px solid #000000; text-align: center; padding: 5px 4px;">11 Case</td>
+        <td style="border-right: 1px solid #000000; text-align: right; padding: 5px 8px;">2,200.00</td>
+        <td style="border-right: 1px solid #000000; text-align: center; padding: 5px 4px;">Case</td>
+        <td style="text-align: right; padding: 5px 8px; font-weight: 600;">24,200.00</td>
       </tr>
+    `
+    : products.map((item, idx) => {
+        const qNum = parseFloat(String(item.quantity || 0)) || 0;
+        const rNum = parseFloat(String(item.rate || 0)) || 0;
+        const rowAmount = item.amount ? parseFloat(String(item.amount).replace(/,/g, '')) : qNum * rNum;
+        const unitDisplay = item.pktUnit || item.unit || item.per || 'Case';
+
+        return `
+          <tr style="vertical-align: top;">
+            <td style="border-right: 1px solid #000000; text-align: center; padding: 4px 4px; font-weight: 500;">
+              ${idx + 1}
+            </td>
+            <td style="border-right: 1px solid #000000; padding: 4px 8px; font-weight: 600;">
+              ${item.particular}
+            </td>
+            <td style="border-right: 1px solid #000000; text-align: center; padding: 4px 4px;">
+              ${item.quantity} ${unitDisplay}
+            </td>
+            <td style="border-right: 1px solid #000000; text-align: right; padding: 4px 8px;">
+              ${formatCur(item.rate)}
+            </td>
+            <td style="border-right: 1px solid #000000; text-align: center; padding: 4px 4px;">
+              ${unitDisplay}
+            </td>
+            <td style="text-align: right; padding: 4px 8px; font-weight: 600;">
+              ${formatCur(rowAmount)}
+            </td>
+          </tr>
+        `;
+      }).join('');
+
+  const renderSingleInvoice = (copyName: string) => `
+    <div class="bill-page-wrapper">
+      <!-- Top Copy Indicator -->
+      <div style="display: flex; justify-content: flex-end; margin-bottom: 2px; padding-right: 2px;">
+        <span style="font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; color: #000000;">
+          ${copyName}
+        </span>
+      </div>
+
+      <!-- Main Bordered Container -->
+      <div class="bill-box">
+        <!-- Header: Ganesha (Left) | Title (Center) | Apsara Logo (Right) -->
+        <div style="display: flex; align-items: center; justify-content: space-between; padding: 2px 10px 6px 10px; border-bottom: 1.5px solid #000000;">
+          <div style="width: 75px; text-align: center; flex-shrink: 0;">
+            <img src="${ganeshaImgUrl}" alt="Ganesha" style="max-height: 68px; max-width: 72px; object-fit: contain; display: block; margin: 0 auto;" />
+          </div>
+
+          <div style="flex: 1; text-align: center; padding: 0 8px;">
+            <div style="font-size: 24px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.03em; line-height: 1.15; margin-bottom: 2px; color: #000000;">
+              ${displayCompanyName}
+            </div>
+            <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: #000000; margin-bottom: 2px;">
+              (ALL KINDS OF CRACKERS AND FANCY VARIETIES AVAILABLE)
+            </div>
+            <div style="font-size: 11.5px; color: #000000; margin-bottom: 1px;">
+              #67-H-E, Rajiv gandhi Nagar,Near Ramji Polypack Sivakasi bus stand Backside
+            </div>
+            <div style="font-size: 12.5px; font-weight: 800; color: #000000;">
+              SIVAKASI - 626 123
+            </div>
+          </div>
+
+          <div style="width: 85px; text-align: center; flex-shrink: 0;">
+            <img src="${apsaraImgUrl}" alt="Apsara Crackers" style="max-height: 68px; max-width: 85px; object-fit: contain; display: block; margin: 0 auto;" />
+          </div>
+        </div>
+
+        <!-- 3-Column Section: To | Delivery To | Invoice Meta -->
+        <table style="width: 100%; border-collapse: collapse; border-bottom: 1.5px solid #000000; font-size: 11.5px;">
+          <tbody>
+            <tr>
+              <!-- Column 1: To -->
+              <td style="width: 38%; border-right: 1.5px solid #000000; padding: 6px 8px; vertical-align: top; line-height: 1.35;">
+                <div style="font-weight: 700; margin-bottom: 2px;">To :</div>
+                ${customerDisplayName ? `<div style="font-weight: 700; font-size: 12px; margin-bottom: 2px;">${customerDisplayName}</div>` : ''}
+                ${customerAddressFormatted ? `<div style="margin-bottom: 2px;">${customerAddressFormatted}</div>` : ''}
+                ${bill.customerPhone ? `<div style="margin-bottom: 2px; font-weight: 500;">Cell : ${bill.customerPhone}</div>` : ''}
+                ${customerAadharOrPan ? `<div style="margin-top: 4px; font-weight: 600;">AADHAR/PAN No : ${customerAadharOrPan}</div>` : ''}
+              </td>
+
+              <!-- Column 2: Delivery To Details -->
+              <td style="width: 38%; border-right: 1.5px solid #000000; padding: 6px 8px; vertical-align: top; line-height: 1.35;">
+                <div style="font-weight: 600; margin-bottom: 2px;">Delivery To Details:</div>
+                ${deliveryDisplayName ? `<div style="font-weight: 700; font-size: 12px; margin-bottom: 2px;">${deliveryDisplayName}</div>` : ''}
+                ${deliveryAddressFormatted ? `<div style="margin-bottom: 2px;">${deliveryAddressFormatted}</div>` : ''}
+                ${bill.deliveryPhone || bill.customerPhone ? `<div style="margin-bottom: 2px; font-weight: 500;">Cell : ${bill.deliveryPhone || bill.customerPhone}</div>` : ''}
+                ${deliveryAadharOrPan ? `<div style="margin-top: 4px; font-weight: 600;">AADHAR/PAN No : ${deliveryAadharOrPan}</div>` : ''}
+              </td>
+
+              <!-- Column 3: Invoice Header, Bill No., Date -->
+              <td style="width: 24%; padding: 0; vertical-align: top;">
+                <table style="width: 100%; border-collapse: collapse; height: 100%;">
+                  <tbody>
+                    <tr>
+                      <td style="background-color: #404040; color: #FFFFFF; font-weight: 800; font-size: 12px; text-align: center; padding: 5px 4px; border-bottom: 1px solid #000000; letter-spacing: 0.06em;">
+                        ${invoiceTitle}
+                      </td>
+                    </tr>
+                    <tr>
+                      <td style="padding: 6px 8px; border-bottom: 1px solid #000000; font-size: 12px; font-weight: 700;">
+                        Bill No. &nbsp;: &nbsp;<strong>${bill.billNo || ''}</strong>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td style="padding: 6px 8px; font-size: 12px; font-weight: 700;">
+                        Date &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;: &nbsp;<strong>${bill.date}</strong>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+
+        <!-- Products Table with Continuous Vertical Lines -->
+        <table style="width: 100%; border-collapse: collapse; border-bottom: 1.5px solid #000000; font-size: 11.5px;">
+          <thead>
+            <tr style="background-color: #404040; color: #FFFFFF; font-weight: 700; text-transform: uppercase; font-size: 11px;">
+              <th style="width: 6%; border-right: 1px solid #000000; padding: 5px 4px; text-align: center;">S.No</th>
+              <th style="width: 44%; border-right: 1px solid #000000; padding: 5px 8px; text-align: center;">PRODUCT NAME</th>
+              <th style="width: 13%; border-right: 1px solid #000000; padding: 5px 4px; text-align: center;">QUANTITY</th>
+              <th style="width: 13%; border-right: 1px solid #000000; padding: 5px 6px; text-align: center;">RATE</th>
+              <th style="width: 10%; border-right: 1px solid #000000; padding: 5px 4px; text-align: center;">PER</th>
+              <th style="width: 14%; padding: 5px 8px; text-align: center;">AMOUNT</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${productRowsHtml}
+
+            <!-- Continuous Vertical Lines Spacer to fill full A4 page -->
+            <tr style="height: ${spacerMinHeight}px;">
+              <td style="border-right: 1px solid #000000;">&nbsp;</td>
+              <td style="border-right: 1px solid #000000;">&nbsp;</td>
+              <td style="border-right: 1px solid #000000;">&nbsp;</td>
+              <td style="border-right: 1px solid #000000;">&nbsp;</td>
+              <td style="border-right: 1px solid #000000;">&nbsp;</td>
+              <td>&nbsp;</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <!-- Bottom Split Section: Dispatch Left | Totals Right -->
+        <table style="width: 100%; border-collapse: collapse; border-bottom: 1.5px solid #000000; font-size: 11.5px;">
+          <tbody>
+            <tr>
+              <!-- Left Column: Dispatch, Transport, HSN, Total Cases -->
+              <td style="width: 58%; border-right: 1.5px solid #000000; padding: 6px 8px; vertical-align: top; line-height: 1.45;">
+                <table style="width: 100%; border-collapse: collapse;">
+                  <tbody>
+                    <tr>
+                      <td style="padding: 2px 0; width: 50%;">
+                        Dispatch From &nbsp;: &nbsp;<strong>${dispatchFrom}</strong>
+                      </td>
+                      <td style="padding: 2px 0; width: 50%;">
+                        To &nbsp;: &nbsp;<strong>${dispatchTo || '-'}</strong>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td style="padding: 3px 0; width: 50%;">
+                        Transport &nbsp;: &nbsp;<strong>${transportDisplayName || '-'}</strong>
+                      </td>
+                      <td style="padding: 3px 0; width: 50%;">
+                        Total Pieces &nbsp;: &nbsp;<strong>${totalQtyComputed}</strong>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+
+                ${
+                  receiptSrc
+                    ? `
+                  <div style="margin-top: 8px; border-top: 1px dashed #CBD5E1; padding-top: 6px;">
+                    <div style="font-size: 10px; font-weight: 700; color: #64748B; margin-bottom: 4px;">
+                      ATTACHED TRANSPORT RECEIPT:
+                    </div>
+                    ${
+                      receiptSrc.startsWith('data:image') || receiptSrc.match(/\.(jpeg|jpg|png|webp|gif)$/i) || !receiptSrc.includes('application/pdf')
+                        ? `<img src="${receiptSrc}" alt="Receipt" style="max-height: 70px; max-width: 100%; object-fit: contain; display: block;" />`
+                        : `<span style="font-size: 11px; color: #0B4DB7; font-weight: 600;">PDF Attachment Included</span>`
+                    }
+                  </div>
+                `
+                    : ''
+                }
+              </td>
+
+              <!-- Right Column: Calculations Table -->
+              <td style="width: 42%; padding: 0; vertical-align: top;">
+                <table style="width: 100%; border-collapse: collapse; font-size: 11.5px;">
+                  <tbody>
+                    <tr>
+                      <td style="padding: 2.5px 8px; font-weight: 600;">Total :</td>
+                      <td style="padding: 2.5px 4px; text-align: center; width: 75px;">:</td>
+                      <td style="padding: 2.5px 8px; text-align: right; font-weight: 600;">
+                        ${formatCur(subtotal)}
+                      </td>
+                    </tr>
+                    ${
+                      discountAmount > 0
+                        ? `
+                    <tr>
+                      <td style="padding: 2.5px 8px; font-weight: 500;">Less : Discount</td>
+                      <td style="padding: 2.5px 4px; text-align: center;">: ${discountPercent} %</td>
+                      <td style="padding: 2.5px 8px; text-align: right;">${formatCur(discountAmount)}</td>
+                    </tr>`
+                        : ''
+                    }
+                    ${
+                      packingAmount > 0
+                        ? `
+                    <tr>
+                      <td style="padding: 2.5px 8px; font-weight: 500;">ADD : P &amp; F CHGS</td>
+                      <td style="padding: 2.5px 4px; text-align: center;">: ${packingPercent} %</td>
+                      <td style="padding: 2.5px 8px; text-align: right;">${formatCur(packingAmount)}</td>
+                    </tr>`
+                        : ''
+                    }
+                    ${
+                      transportAmt > 0
+                        ? `
+                    <tr>
+                      <td style="padding: 2.5px 8px; font-weight: 500;">Transport Charges</td>
+                      <td style="padding: 2.5px 4px; text-align: center;">:</td>
+                      <td style="padding: 2.5px 8px; text-align: right;">${formatCur(transportAmt)}</td>
+                    </tr>`
+                        : ''
+                    }
+                    <tr>
+                      <td style="padding: 2.5px 8px; font-weight: 600;">Value of Goods</td>
+                      <td style="padding: 2.5px 4px; text-align: center;">:</td>
+                      <td style="padding: 2.5px 8px; text-align: right; font-weight: 600;">
+                        ${formatCur(valueOfGoods)}
+                      </td>
+                    </tr>
+                    ${
+                      taxAmount > 0
+                        ? `
+                    <tr>
+                      <td style="padding: 2.5px 8px; font-weight: 500;">GST / Tax</td>
+                      <td style="padding: 2.5px 4px; text-align: center;">: ${taxRate} %</td>
+                      <td style="padding: 2.5px 8px; text-align: right;">${formatCur(taxAmount)}</td>
+                    </tr>`
+                        : ''
+                    }
+                    <tr>
+                      <td style="padding: 2.5px 8px; font-weight: 500;">Round Off</td>
+                      <td style="padding: 2.5px 4px; text-align: center;">:</td>
+                      <td style="padding: 2.5px 8px; text-align: right;">
+                        ${formatCur(roundOffNum)}
+                      </td>
+                    </tr>
+                    <tr style="border-top: 1px solid #000000;">
+                      <td style="padding: 4px 8px; font-weight: 800; font-size: 12px;">Grand Total</td>
+                      <td style="padding: 4px 4px; text-align: center; font-weight: 800;">:</td>
+                      <td style="padding: 4px 8px; text-align: right; font-weight: 800; font-size: 12px;">
+                        ${formatCur(grandTotalNum)}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+
+        <!-- Amount in Words -->
+        <div style="padding: 6px 8px; border-bottom: 1.5px solid #000000; font-size: 11.5px; font-weight: 700;">
+          Rupees : &nbsp;${wordsClean} Only.
+        </div>
+
+        <!-- Footer: Terms Left | Signatory Right -->
+        <table style="width: 100%; border-collapse: collapse; font-size: 10.5px;">
+          <tbody>
+            <tr>
+              <td style="width: 58%; border-right: 1.5px solid #000000; padding: 6px 8px; vertical-align: top;">
+                <div style="line-height: 1.45;">
+                  <div>1. Certified that the particulars given above are true and correct.</div>
+                  <div>2. Goods once sold cannot be taken back on any account.</div>
+                  <div>3. Subject to sivakasi jurisdiction</div>
+                </div>
+                <div style="text-align: right; padding-right: 28px; margin-top: 16px; font-weight: 700; font-size: 11px;">
+                  E. &amp; O.E
+                </div>
+              </td>
+
+              <td style="width: 42%; padding: 6px 8px; vertical-align: top; text-align: center;">
+                <div style="font-weight: 800; font-size: 12px; text-transform: uppercase;">
+                  For ${displayCompanyName}
+                </div>
+                <div style="height: 48px;"></div>
+                <div style="font-size: 11px; font-weight: 600;">
+                  Authorized Signatory
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+
+  // Repeat for the requested number of copies
+  const actualCopies = Math.max(1, copiesCount || 1);
+  let pagesHtml = '';
+  for (let i = 0; i < actualCopies; i++) {
+    const copyTitle = copyLabels[i] || (bill.invoiceCopy || 'ORIGINAL');
+    const isLast = i === actualCopies - 1;
+    pagesHtml += `
+      <div class="gst-print-copy ${!isLast ? 'page-break' : ''}">
+        ${renderSingleInvoice(copyTitle)}
+      </div>
     `;
-  }).join('');
+  }
 
   return `
 <!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8" />
-  <title>Bill #${bill.billNo || 'Invoice'} - ${displayCompanyName}</title>
+  <title>${invoiceTitle} #${bill.billNo || '1'} - ${displayCompanyName}</title>
   <style>
     @page {
       size: A4 portrait;
-      margin: 8mm 10mm;
+      margin: 5mm 6mm;
     }
     *, *:before, *:after {
       box-sizing: border-box;
@@ -205,299 +523,50 @@ export const generateBillHtml = (bill: BillPrintData): string => {
     html, body {
       background: #ffffff;
       color: #000000;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      font-family: Arial, "Helvetica Neue", Helvetica, sans-serif;
+      font-size: 11.5px;
       -webkit-print-color-adjust: exact !important;
       print-color-adjust: exact !important;
     }
-    .bill-box-container {
+    .gst-print-copy {
       width: 100%;
-      border: 1.5px solid #000000;
-      background: #ffffff;
-    }
-    .top-header {
-      text-align: center;
-      padding: 12px 16px 10px 16px;
-      border-bottom: 1.5px solid #000000;
-    }
-    .comp-name {
-      font-size: 26px;
-      font-weight: 800;
-      color: #000000;
-      margin-bottom: 2px;
-      letter-spacing: -0.01em;
-      text-transform: uppercase;
-    }
-    .comp-tagline {
-      font-size: 11.5px;
-      font-weight: 600;
-      color: #475569;
-      font-style: italic;
-      margin-bottom: 3px;
-    }
-    .comp-city {
-      font-size: 12.5px;
-      font-weight: 600;
-      color: #1e293b;
-    }
-    .comp-meta {
-      font-size: 11.5px;
-      font-weight: 600;
-      color: #334155;
-      margin-top: 2px;
-    }
-    .comp-tax {
-      font-size: 11.5px;
-      font-weight: 700;
-      color: #0f172a;
-      margin-top: 2px;
-    }
-    .meta-table {
-      width: 100%;
-      border-collapse: collapse;
-      border-bottom: 1.5px solid #000000;
-      font-size: 12.5px;
-    }
-    .meta-table td {
-      border: 1px solid #000000;
-      padding: 5px 10px;
-      vertical-align: middle;
-    }
-    .meta-label {
-      color: #475569;
-      font-weight: 500;
-      margin-right: 4px;
-    }
-    .meta-val {
-      font-weight: 700;
-      color: #000000;
-    }
-    .prod-table {
-      width: 100%;
-      border-collapse: collapse;
-      border-bottom: 1.5px solid #000000;
-      font-size: 12px;
-    }
-    .prod-table th {
-      border: 1px solid #000000;
-      padding: 6px 8px;
-      font-weight: 700;
-      background-color: #f8fafc;
-      color: #000000;
-    }
-    .prod-table td {
-      border: 1px solid #000000;
-      padding: 6px 8px;
-    }
-    .bottom-section {
-      width: 100%;
-      display: flex;
-      justify-content: space-between;
-      align-items: stretch;
-      page-break-inside: avoid;
-    }
-    .left-receipt-area {
-      flex: 1 1 50%;
-      border-right: 1.5px solid #000000;
-      padding: 8px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
       box-sizing: border-box;
-      min-height: 140px;
+      page-break-inside: avoid !important;
+      break-inside: avoid !important;
     }
-    .left-sign-area {
-      flex: 1 1 50%;
-      border-right: 1.5px solid #000000;
-      padding: 12px 16px;
-      display: flex;
-      flex-direction: column;
-      justify-content: flex-end;
-      box-sizing: border-box;
-      min-height: 140px;
-    }
-    .receipt-img {
+    .bill-page-wrapper {
+      width: 100%;
+      min-height: 280mm;
       max-width: 100%;
-      max-height: 180px;
-      object-fit: contain;
-      display: block;
-    }
-    .summary-area {
-      flex: 1 1 50%;
+      margin: 0 auto;
       padding: 0;
       box-sizing: border-box;
+      display: flex;
+      flex-direction: column;
+      page-break-inside: avoid !important;
+      break-inside: avoid !important;
     }
-    .summary-table {
+    .bill-box {
+      border: 1.5px solid #000000;
+      box-sizing: border-box;
+      background-color: #ffffff;
       width: 100%;
-      border-collapse: collapse;
-      font-size: 12.5px;
-    }
-    .summary-table td {
-      border: 1px solid #000000;
-      padding: 5px 10px;
-    }
-    .summary-label-cell {
-      font-weight: 500;
-      color: #334155;
-    }
-    .summary-val-cell {
-      text-align: right;
-      font-weight: 600;
-      color: #000000;
-    }
-    .summary-total-row td {
-      font-weight: 800;
-      font-size: 13.5px;
-      padding: 7px 10px;
-      background-color: #f8fafc;
-      border-top: 1.5px solid #000000;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      page-break-inside: avoid !important;
+      break-inside: avoid !important;
     }
   </style>
 </head>
 <body>
-  <div class="bill-box-container">
-    <!-- Header -->
-    <div class="top-header">
-      ${
-        `<div style="margin-bottom:4px;"><img src="${storeSettings.logoUrl || '/logo.png'}" alt="Company Logo" style="max-height:48px; max-width:160px; object-fit:contain;" /></div>`
-      }
-      <div class="comp-name">${displayCompanyName}</div>
-      ${storeSettings.tagline ? `<div class="comp-tagline">"${storeSettings.tagline}"</div>` : ''}
-      <div class="comp-city">${fullAddressLine}</div>
-      ${contactLine ? `<div class="comp-meta">${contactLine}</div>` : ''}
-      ${taxLine ? `<div class="comp-tax">${taxLine}</div>` : ''}
-    </div>
-
-    <!-- Metadata Grid Table with Boxed Lines -->
-    <table class="meta-table">
-      <tr>
-        <td style="width: 50%;">
-          <span class="meta-label">Bill No:</span>
-          <span class="meta-val">${bill.billNo || '-'}</span>
-        </td>
-        <td style="width: 50%;">
-          <span class="meta-label">Date:</span>
-          <span class="meta-val">${bill.date || '-'}</span>
-        </td>
-      </tr>
-      <tr>
-        <td>
-          <span class="meta-label">Customer Name:</span>
-          <span class="meta-val">${bill.customerName || '-'}</span>
-        </td>
-        <td>
-          <span class="meta-label">Company Name:</span>
-          <span class="meta-val">${displayCompanyName}</span>
-        </td>
-      </tr>
-      <tr>
-        <td>
-          <span class="meta-label">Transport:</span>
-          <span class="meta-val">${transportDisplayName}</span>
-        </td>
-        <td>
-          <span class="meta-label">Total No. of Cases:</span>
-          <span class="meta-val">${computedCases}</span>
-        </td>
-      </tr>
-    </table>
-
-    <!-- Products Table with Boxed Rows -->
-    <table class="prod-table">
-      <thead>
-        <tr>
-          <th style="width: 45px; text-align: center;">Si.No</th>
-          <th style="text-align: left;">Particular</th>
-          <th style="width: 75px; text-align: center;">Quantity</th>
-          <th style="width: 85px; text-align: right;">Rate (₹)</th>
-          <th style="width: 85px; text-align: center;">Pkt / Unit</th>
-          <th style="width: 105px; text-align: right;">Amount (₹)</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${productRowsHtml || '<tr><td colspan="6" style="text-align:center; padding:14px; border:1px solid #000;">No product items</td></tr>'}
-      </tbody>
-    </table>
-
-    <!-- Bottom Section: Receipt or Signatory Box on Left & Summary Box on Right -->
-    <div class="bottom-section">
-      ${
-        receiptSrc
-          ? `
-          <div class="left-receipt-area">
-            <img src="${receiptSrc}" class="receipt-img" alt="Transport Receipt" />
-          </div>
-          `
-          : `
-          <div class="left-sign-area">
-            <div style="font-size: 11px; color: #64748B; margin-bottom: 24px;">Thank you for your business!</div>
-            <div style="font-size: 11.5px; color: #000000; border-top: 1px dashed #000000; display: inline-block; padding-top: 4px; min-width: 180px;">
-              <div style="font-weight: 800; color: #000000;">For ${displayCompanyName}</div>
-              <div style="font-size: 10.5px; color: #475569; font-weight: 600; margin-top: 2px;">
-                ${storeSettings.ownerName ? `(${storeSettings.ownerName}) ` : ''}Authorized Signatory
-              </div>
-            </div>
-          </div>
-          `
-      }
-
-      <!-- Right Column: Summary Table -->
-      <div class="summary-area">
-        <table class="summary-table">
-          <tbody>
-            <tr>
-              <td class="summary-label-cell">Particular Amount</td>
-              <td class="summary-val-cell">${subtotal.toFixed(2)}</td>
-            </tr>
-            ${
-              discountAmt > 0
-                ? `<tr>
-                    <td class="summary-label-cell">${discountLabel}</td>
-                    <td class="summary-val-cell">-${discountAmt.toFixed(2)}</td>
-                  </tr>`
-                : ''
-            }
-            ${
-              transportAmt > 0
-                ? `<tr>
-                    <td class="summary-label-cell">Transport Charges</td>
-                    <td class="summary-val-cell">+${transportAmt.toFixed(2)}</td>
-                  </tr>`
-                : ''
-            }
-            ${
-              packingAmt > 0
-                ? `<tr>
-                    <td class="summary-label-cell">${packingLabel}</td>
-                    <td class="summary-val-cell">+${packingAmt.toFixed(2)}</td>
-                  </tr>`
-                : ''
-            }
-            ${
-              taxAmt > 0
-                ? `<tr>
-                    <td class="summary-label-cell">${taxLabel}</td>
-                    <td class="summary-val-cell">+${taxAmt.toFixed(2)}</td>
-                  </tr>`
-                : ''
-            }
-            <tr class="summary-total-row">
-              <td>Total Amount</td>
-              <td class="summary-val-cell">${formattedTotal}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-  </div>
+  ${pagesHtml}
 </body>
 </html>
   `;
 };
 
-/**
- * Direct print function that opens an isolated, clean print window
- * Guaranteed to print ONLY the full-page A4 bill document!
- */
 export const printBillDirectly = (bill: BillPrintData) => {
   const htmlContent = generateBillHtml(bill);
   triggerBrowserPrint(htmlContent);
@@ -1709,18 +1778,22 @@ export const printProductsListDirectly = (products: any[]) => {
  * Reusable hidden-iframe print helper with image loading support
  */
 const triggerBrowserPrint = (htmlContent: string) => {
-  let iframe = document.getElementById('apsara-print-iframe') as HTMLIFrameElement | null;
-  if (!iframe) {
-    iframe = document.createElement('iframe');
-    iframe.id = 'apsara-print-iframe';
-    iframe.style.position = 'fixed';
-    iframe.style.right = '0';
-    iframe.style.bottom = '0';
-    iframe.style.width = '0';
-    iframe.style.height = '0';
-    iframe.style.border = '0';
-    document.body.appendChild(iframe);
+  // Clean up any existing iframe to avoid stale listeners or stacked frames
+  const existingIframe = document.getElementById('apsara-print-iframe');
+  if (existingIframe) {
+    existingIframe.remove();
   }
+
+  const iframe = document.createElement('iframe');
+  iframe.id = 'apsara-print-iframe';
+  iframe.style.position = 'fixed';
+  iframe.style.right = '0';
+  iframe.style.bottom = '0';
+  iframe.style.width = '0';
+  iframe.style.height = '0';
+  iframe.style.border = '0';
+  iframe.style.visibility = 'hidden';
+  document.body.appendChild(iframe);
 
   const doc = iframe.contentWindow?.document || iframe.contentDocument;
   if (doc) {
@@ -1728,10 +1801,25 @@ const triggerBrowserPrint = (htmlContent: string) => {
     doc.write(htmlContent);
     doc.close();
 
+    let hasPrinted = false;
+    let safetyTimeout: ReturnType<typeof setTimeout> | null = null;
+
     const doPrint = () => {
+      if (hasPrinted) return;
+      hasPrinted = true;
+
+      if (safetyTimeout) {
+        clearTimeout(safetyTimeout);
+        safetyTimeout = null;
+      }
+
       setTimeout(() => {
-        iframe?.contentWindow?.focus();
-        iframe?.contentWindow?.print();
+        try {
+          iframe.contentWindow?.focus();
+          iframe.contentWindow?.print();
+        } catch (err) {
+          console.warn('Print error:', err);
+        }
       }, 150);
     };
 
@@ -1758,8 +1846,8 @@ const triggerBrowserPrint = (htmlContent: string) => {
         }
       });
 
-      // Safety timeout
-      setTimeout(doPrint, 1200);
+      // Safety timeout in case any image takes too long or fails
+      safetyTimeout = setTimeout(doPrint, 1200);
     }
   }
 };

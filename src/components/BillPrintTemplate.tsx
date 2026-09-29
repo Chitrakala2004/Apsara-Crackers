@@ -1,13 +1,18 @@
 import React from 'react';
-import defaultApsaraLogo from '../assets/logo.png';
+import defaultGaneshaLogo from '../assets/ganesha.jpg';
+import defaultApsaraFeatherLogo from '../assets/apsara_logo.jpg';
 import { getStoredSettings } from './SettingsPage';
+import { numberToIndianWords } from '../utils/numberToWords';
 
 export interface BillPrintProduct {
   particular: string;
   quantity: string | number;
   rate: string | number;
-  pktUnit: string | number;
+  pktUnit?: string | number;
+  unit?: string | number;
+  per?: string | number;
   amount: string | number;
+  hsnCode?: string;
 }
 
 export interface BillPrintData {
@@ -16,19 +21,37 @@ export interface BillPrintData {
   customerName: string;
   customerPhone?: string;
   customerAddress?: string;
+  customerCity?: string;
   customerGst?: string;
+  customerAadhar?: string;
+  customerPan?: string;
+  deliveryName?: string;
+  deliveryAddress?: string;
+  deliveryPhone?: string;
+  deliveryAadhar?: string;
   companyName: string;
   preparedBy?: string;
   phone?: string;
   email?: string;
   website?: string;
   transport?: string;
+  transportGstin?: string;
+  dispatchFrom?: string;
+  dispatchTo?: string;
+  despatchFrom?: string;
+  despatchTo?: string;
+  hsnNo?: string;
   caseCount?: string | number;
   products: BillPrintProduct[];
   amount?: string | number;
+  subtotal?: string | number;
   discount?: string | number;
+  discountPercent?: string | number;
   packing?: string | number;
+  packingCharges?: string | number;
+  packingPercent?: string | number;
   tax?: string | number;
+  roundOff?: string | number;
   total?: string | number;
   paymentStatus?: string;
   paymentMode?: string;
@@ -37,13 +60,25 @@ export interface BillPrintData {
   pdfData?: string;
   pdfUrl?: string;
   pdfName?: string;
+  invoiceCopy?: string;
+  invoiceTitle?: string;
 }
 
 interface BillPrintTemplateProps {
   bill: BillPrintData;
+  copyLabel?: string;
 }
 
-export const BillPrintTemplate: React.FC<BillPrintTemplateProps> = ({ bill }) => {
+export const formatCurrency = (val: string | number | undefined | null): string => {
+  if (val === undefined || val === null || val === '') return '0.00';
+  const num = typeof val === 'number' ? val : parseFloat(String(val).replace(/,/g, '')) || 0;
+  return num.toLocaleString('en-IN', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+};
+
+export const BillPrintTemplate: React.FC<BillPrintTemplateProps> = ({ bill, copyLabel }) => {
   const [storeSettings, setStoreSettings] = React.useState(() => getStoredSettings());
 
   React.useEffect(() => {
@@ -56,26 +91,62 @@ export const BillPrintTemplate: React.FC<BillPrintTemplateProps> = ({ bill }) =>
     };
   }, []);
 
-  // Calculate Subtotal from Products or bill.amount
-  const prodSubtotal = (bill.products || []).reduce((acc, p) => {
-    const amt = parseFloat(String(p.amount).replace(/,/g, '')) || 0;
+  // Display Company Name
+  const rawComp =
+    bill.companyName && bill.companyName.trim() !== '' && bill.companyName !== 'General'
+      ? bill.companyName
+      : storeSettings.companyName || 'APSARA TRADERS';
+  const displayCompanyName =
+    rawComp.toUpperCase().includes('VARUN') || rawComp.toUpperCase().includes('DHEEKSHA')
+      ? 'APSARA TRADERS'
+      : (rawComp.toUpperCase().includes('APSARA') ? 'APSARA TRADERS' : rawComp.toUpperCase());
+
+  // Subtotal from products
+  const products = bill.products || [];
+  const prodSubtotal = products.reduce((acc, p) => {
+    const q = parseFloat(String(p.quantity || 0)) || 0;
+    const r = parseFloat(String(p.rate || 0)) || 0;
+    const amt = p.amount ? parseFloat(String(p.amount).replace(/,/g, '')) : q * r;
     return acc + amt;
   }, 0);
-  const subtotal = prodSubtotal > 0 ? prodSubtotal : (parseFloat(String(bill.amount || bill.total || '0').replace(/,/g, '')) || 0);
+  const subtotal = prodSubtotal > 0 ? prodSubtotal : (parseFloat(String(bill.subtotal || bill.amount || bill.total || 0).replace(/,/g, '')) || 0);
 
   // Discount calculation
-  const rawDiscStr = String(bill.discount ?? '').trim();
-  const cleanDisc = rawDiscStr.replace(/[^0-9.]/g, '');
-  const discNum = parseFloat(cleanDisc) || 0;
-  let discountAmt = 0;
-  let discountLabel = 'Discount';
-  if (discNum > 0) {
-    if (rawDiscStr.includes('%') || (discNum <= 100 && !rawDiscStr.startsWith('₹'))) {
-      discountAmt = (subtotal * discNum) / 100;
-      discountLabel = `Discount (${discNum}%)`;
+  let discountPercent = '0.00';
+  let discountAmount = 0;
+  if (bill.discountPercent !== undefined && bill.discountPercent !== null && bill.discountPercent !== '') {
+    const dPct = parseFloat(String(bill.discountPercent)) || 0;
+    discountPercent = dPct.toFixed(2);
+    discountAmount = (subtotal * dPct) / 100;
+  } else if (bill.discount !== undefined && bill.discount !== null && bill.discount !== '') {
+    const rawDisc = String(bill.discount).trim();
+    const dVal = parseFloat(rawDisc.replace(/[^0-9.]/g, '')) || 0;
+    if (rawDisc.includes('%') || (dVal > 0 && dVal <= 100 && !rawDisc.startsWith('₹'))) {
+      discountPercent = dVal.toFixed(2);
+      discountAmount = (subtotal * dVal) / 100;
     } else {
-      discountAmt = discNum;
-      discountLabel = `Discount (₹${discNum.toFixed(2)})`;
+      discountAmount = dVal;
+      discountPercent = subtotal > 0 ? ((discountAmount / subtotal) * 100).toFixed(2) : '0.00';
+    }
+  }
+
+  // Packing & Forwarding (P & F CHGS)
+  let packingPercent = '0.00';
+  let packingAmount = 0;
+  if (bill.packingPercent !== undefined && bill.packingPercent !== null && bill.packingPercent !== '') {
+    const pPct = parseFloat(String(bill.packingPercent)) || 0;
+    packingPercent = pPct.toFixed(2);
+    packingAmount = (subtotal * pPct) / 100;
+  } else if ((bill.packingCharges !== undefined && bill.packingCharges !== null && bill.packingCharges !== '') ||
+             (bill.packing !== undefined && bill.packing !== null && bill.packing !== '')) {
+    const rawPack = String(bill.packingCharges ?? bill.packing).trim();
+    const pVal = parseFloat(rawPack.replace(/[^0-9.]/g, '')) || 0;
+    if (rawPack.includes('%')) {
+      packingPercent = pVal.toFixed(2);
+      packingAmount = (subtotal * pVal) / 100;
+    } else {
+      packingAmount = pVal;
+      packingPercent = subtotal > 0 ? ((packingAmount / subtotal) * 100).toFixed(2) : '0.00';
     }
   }
 
@@ -84,429 +155,714 @@ export const BillPrintTemplate: React.FC<BillPrintTemplateProps> = ({ bill }) =>
   const cleanTrans = rawTransportStr.replace(/[^0-9.]/g, '');
   const transNum = parseFloat(cleanTrans) || 0;
   const transportAmt = (!isNaN(Number(rawTransportStr)) && transNum > 0) ? transNum : 0;
-  const transportDisplayName = (!rawTransportStr || rawTransportStr === '0' || rawTransportStr === '-') ? '-' : rawTransportStr;
-
-  // Packing calculation - amount by default, only percentage if explicitly formatted with %
-  const rawPackStr = String(bill.packing ?? '').trim();
-  const cleanPack = rawPackStr.replace(/[^0-9.]/g, '');
-  const packNum = parseFloat(cleanPack) || 0;
-  let packingAmt = 0;
-  let packingLabel = 'Packing Charges';
-  if (packNum > 0) {
-    if (rawPackStr.includes('%')) {
-      packingAmt = (subtotal * packNum) / 100;
-      packingLabel = `Packing Charges (${packNum}%)`;
-    } else {
-      packingAmt = packNum;
-      packingLabel = `Packing Charges`;
-    }
-  }
+  const transportDisplayName = (!rawTransportStr || rawTransportStr === '0' || rawTransportStr === '-') ? '' : rawTransportStr;
 
   // Tax calculation
   const rawTaxStr = String(bill.tax ?? '').trim();
   const cleanTax = rawTaxStr.replace(/[^0-9.]/g, '');
-  const taxNum = parseFloat(cleanTax) || 0;
-  let taxAmt = 0;
-  let taxLabel = 'GST / Tax';
-  if (taxNum > 0) {
-    const baseForTax = Math.max(0, subtotal - discountAmt + transportAmt + packingAmt);
-    taxAmt = (baseForTax * taxNum) / 100;
-    taxLabel = `GST / Tax (${taxNum}%)`;
-  }
+  const taxRate = parseFloat(cleanTax) || 0;
 
-  // Final Net Total
-  const calculatedTotal = Math.max(0, subtotal - discountAmt + transportAmt + packingAmt + taxAmt);
-  const rawTotalNum = parseFloat(String(bill.total ?? bill.amount ?? '0').replace(/,/g, '')) || 0;
-  const finalTotalNum = rawTotalNum > 0 ? rawTotalNum : calculatedTotal;
-  const formattedTotal = '₹' + finalTotalNum.toLocaleString('en-IN', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
+  // Value of Goods
+  const valueOfGoods = Math.max(0, subtotal - discountAmount + packingAmount + transportAmt);
+  const taxAmount = taxRate > 0 ? (valueOfGoods * taxRate) / 100 : 0;
 
-  // Calculate sum of quantities across products for Total No. of Cases
-  const computedCases = bill.caseCount !== undefined && bill.caseCount !== ''
-    ? bill.caseCount
-    : (bill.products || []).reduce((acc, p) => acc + (parseFloat(String(p.quantity)) || 0), 0);
+  // Grand Total & Round Off
+  const rawTotalNum = parseFloat(String(bill.total || 0).replace(/,/g, '')) || 0;
+  const calculatedTotal = valueOfGoods + taxAmount;
+  const grandTotalNum = rawTotalNum > 0 ? rawTotalNum : Math.round(calculatedTotal);
+  const roundOffNum = bill.roundOff !== undefined && bill.roundOff !== null && bill.roundOff !== ''
+    ? (parseFloat(String(bill.roundOff)) || 0)
+    : (grandTotalNum - calculatedTotal);
 
-  const rawComp =
-    bill.companyName &&
-    bill.companyName.trim() !== '' &&
-    bill.companyName !== 'General'
-      ? bill.companyName
-      : storeSettings.companyName || 'Apsara Crackers';
-  const displayCompanyName =
-    rawComp.toLowerCase().includes('varun') || rawComp.toLowerCase().includes('dheeksha')
-      ? (storeSettings.companyName || 'Apsara Crackers')
-      : rawComp;
+  // Total Quantity / Pieces Count
+  const totalQtyComputed = products.reduce((acc, p) => acc + (parseFloat(String(p.quantity || 0)) || 0), 0);
 
-  // Full store address line
-  const defaultAddress = '67 - H/E, Rajivgandhi Nagar, Near Ramji Polypack, Sivakasi Bus Stand , Sivakasi';
-  const rawAddress = (storeSettings.address && storeSettings.address.trim())
-    ? storeSettings.address.trim()
-    : defaultAddress;
-  const cleanAddress = (rawAddress.toLowerCase().includes('tirupur') || rawAddress.toLowerCase().includes('varun'))
-    ? defaultAddress
-    : rawAddress;
-  const addressParts: string[] = [cleanAddress];
-  if (storeSettings.pincode && storeSettings.pincode.trim() && !cleanAddress.includes(storeSettings.pincode.trim())) {
-    addressParts.push(`PIN: ${storeSettings.pincode.trim()}`);
-  }
-  const fullAddressLine = addressParts.join(' - ');
+  // Customer Name formatting
+  const rawCustName = (bill.customerName || '').trim();
+  const customerDisplayName = rawCustName ? (rawCustName.toLowerCase().startsWith('m/s') ? rawCustName : `M/s. ${rawCustName}`) : '';
 
-  // Contact line (Phone numbers: 9843067073, 8778429299)
-  const phone1 = (storeSettings.phone && !storeSettings.phone.includes('98765')) ? storeSettings.phone.trim() : '9843067073';
-  const phone2 = (storeSettings.whatsapp && !storeSettings.whatsapp.includes('98765')) ? storeSettings.whatsapp.trim() : '8778429299';
-  const phoneNumbersList = Array.from(new Set([phone1, phone2].filter(Boolean))).join(', ');
-  const contactParts: string[] = [`Cell: ${phoneNumbersList}`];
-  if (storeSettings.email && storeSettings.email.trim()) {
-    contactParts.push(`Email: ${storeSettings.email.trim()}`);
-  }
-  const contactLine = contactParts.join(' | ');
+  // Customer Address
+  const customerAddressFormatted = bill.customerAddress && bill.customerAddress !== 'N/A' && bill.customerAddress !== '-'
+    ? bill.customerAddress
+    : '';
 
-  // Tax / Registration line (GSTIN, PAN)
-  const taxParts: string[] = [];
-  if (storeSettings.gstin && storeSettings.gstin.trim()) {
-    taxParts.push(`GSTIN: ${storeSettings.gstin.trim()}`);
-  }
-  if (storeSettings.pan && storeSettings.pan.trim()) {
-    taxParts.push(`PAN: ${storeSettings.pan.trim()}`);
-  }
-  const taxLine = taxParts.join(' | ');
+  // Customer Aadhar / PAN / GST
+  const customerAadharOrPan = (bill.customerAadhar || bill.customerPan || bill.customerGst || '').trim();
 
-  // Check for uploaded Lorry / Godown receipt (pdfData or pdfUrl)
+  // Delivery To Details
+  const rawDeliveryName = (bill.deliveryName || bill.customerName || '').trim();
+  const deliveryDisplayName = rawDeliveryName ? (rawDeliveryName.toLowerCase().startsWith('m/s') ? rawDeliveryName : `M/s. ${rawDeliveryName}`) : '';
+  const deliveryAddressFormatted = bill.deliveryAddress && bill.deliveryAddress !== 'N/A' && bill.deliveryAddress !== '-'
+    ? bill.deliveryAddress
+    : customerAddressFormatted;
+  const deliveryAadharOrPan = (bill.deliveryAadhar || customerAadharOrPan || '').trim();
+
+  // Dispatch Details
+  const dispatchFrom = bill.dispatchFrom || bill.despatchFrom || 'Sivakasi';
+  const dispatchTo = bill.dispatchTo || bill.despatchTo || bill.customerCity || '';
+
+  // Amount in Words
+  const rawWords = numberToIndianWords(grandTotalNum);
+  const wordsClean = rawWords
+    .replace(/\s*Rupees\s*/i, ' ')
+    .replace(/\s*Only\s*/i, '')
+    .trim();
+
+  // Dynamic spacer height to keep table lines running down continuously while filling the full A4 page
+  const spacerMinHeight = Math.max(80, 520 - products.length * 26);
+
+  const displayCopy = copyLabel || bill.invoiceCopy || 'ORIGINAL';
+  const invoiceTitle = bill.invoiceTitle || (taxRate > 0 ? 'TAX INVOICE' : 'ESTIMATE');
+
+  // Lorry Receipt Source if present
   const receiptSrc = bill.pdfData || bill.pdfUrl || '';
 
   return (
     <div
-      className="apsara-bill-container"
+      className="gst-bill-print-wrapper"
       style={{
         width: '100%',
         maxWidth: '820px',
+        minHeight: '280mm',
         margin: '0 auto',
         backgroundColor: '#FFFFFF',
         color: '#000000',
-        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
-        border: '1.5px solid #000000',
+        fontFamily: 'Arial, "Helvetica Neue", Helvetica, sans-serif',
         boxSizing: 'border-box',
+        padding: '4px 6px',
+        fontSize: '11.5px',
+        display: 'flex',
+        flexDirection: 'column',
       }}
     >
-      {/* Top Header: Centered Company Name & Logo with all settings details */}
+      {/* Top Copy Indicator (e.g. ORIGINAL) */}
       <div
         style={{
-          textAlign: 'center',
-          padding: '12px 16px 10px 16px',
-          borderBottom: '1.5px solid #000000',
+          display: 'flex',
+          justifyContent: 'flex-end',
+          marginBottom: '2px',
+          paddingRight: '2px',
         }}
       >
-        {(storeSettings.logoUrl || defaultApsaraLogo) && (
-          <div style={{ marginBottom: '4px' }}>
-            <img
-              src={storeSettings.logoUrl || defaultApsaraLogo}
-              alt="Company Logo"
-              style={{ maxHeight: '48px', maxWidth: '160px', objectFit: 'contain' }}
-            />
-          </div>
-        )}
-        <h1
+        <span
           style={{
-            fontSize: '26px',
+            fontSize: '11px',
             fontWeight: 800,
-            color: '#000000',
-            margin: '0 0 2px 0',
-            letterSpacing: '-0.01em',
             textTransform: 'uppercase',
+            letterSpacing: '0.06em',
+            color: '#000000',
           }}
         >
-          {displayCompanyName}
-        </h1>
-        {storeSettings.tagline && (
-          <div style={{ fontSize: '11.5px', fontWeight: 600, color: '#475569', fontStyle: 'italic', marginBottom: '3px' }}>
-            "{storeSettings.tagline}"
-          </div>
-        )}
-        <div style={{ fontSize: '12.5px', fontWeight: 600, color: '#1E293B' }}>
-          {fullAddressLine}
-        </div>
-        {contactLine && (
-          <div style={{ fontSize: '11.5px', fontWeight: 600, color: '#334155', marginTop: '2px' }}>
-            {contactLine}
-          </div>
-        )}
-        {taxLine && (
-          <div style={{ fontSize: '11.5px', fontWeight: 700, color: '#0F172A', marginTop: '2px' }}>
-            {taxLine}
-          </div>
-        )}
+          {displayCopy}
+        </span>
       </div>
 
-      {/* Bill Metadata Block with Boxed Lines */}
-      <table
-        style={{
-          width: '100%',
-          borderCollapse: 'collapse',
-          borderBottom: '1.5px solid #000000',
-          fontSize: '12.5px',
-        }}
-      >
-        <tbody>
-          <tr>
-            <td style={{ width: '50%', border: '1px solid #000000', padding: '5px 10px' }}>
-              <span style={{ color: '#475569', fontWeight: 500, marginRight: '4px' }}>Bill No:</span>
-              <strong style={{ color: '#000000' }}>{bill.billNo || '-'}</strong>
-            </td>
-            <td style={{ width: '50%', border: '1px solid #000000', padding: '5px 10px' }}>
-              <span style={{ color: '#475569', fontWeight: 500, marginRight: '4px' }}>Date:</span>
-              <strong style={{ color: '#000000' }}>{bill.date || '-'}</strong>
-            </td>
-          </tr>
-          <tr>
-            <td style={{ border: '1px solid #000000', padding: '5px 10px' }}>
-              <div>
-                <span style={{ color: '#475569', fontWeight: 500, marginRight: '4px' }}>Customer Name:</span>
-                <strong style={{ color: '#000000' }}>{bill.customerName || '-'}</strong>
-              </div>
-              {((bill.customerPhone && bill.customerPhone !== 'N/A' && bill.customerPhone !== '-') ||
-                (bill.customerAddress && bill.customerAddress !== 'N/A' && bill.customerAddress !== '-')) && (
-                <div style={{ fontSize: '11px', color: '#334155', marginTop: '2px', fontWeight: 500 }}>
-                  {[
-                    bill.customerPhone && bill.customerPhone !== 'N/A' && bill.customerPhone !== '-' ? `Ph: ${bill.customerPhone}` : '',
-                    bill.customerAddress && bill.customerAddress !== 'N/A' && bill.customerAddress !== '-' ? bill.customerAddress : '',
-                  ]
-                    .filter(Boolean)
-                    .join(' | ')}
-                </div>
-              )}
-            </td>
-            <td style={{ border: '1px solid #000000', padding: '5px 10px' }}>
-              <span style={{ color: '#475569', fontWeight: 500, marginRight: '4px' }}>Company Name:</span>
-              <strong style={{ color: '#000000' }}>{displayCompanyName}</strong>
-            </td>
-          </tr>
-          <tr>
-            <td style={{ border: '1px solid #000000', padding: '5px 10px' }}>
-              <span style={{ color: '#475569', fontWeight: 500, marginRight: '4px' }}>Transport:</span>
-              <strong style={{ color: '#000000' }}>{transportDisplayName}</strong>
-            </td>
-            <td style={{ border: '1px solid #000000', padding: '5px 10px' }}>
-              <span style={{ color: '#475569', fontWeight: 500, marginRight: '4px' }}>Total No. of Cases:</span>
-              <strong style={{ color: '#000000' }}>{computedCases}</strong>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-
-      {/* Products Table with Boxed Rows */}
-      <table
-        style={{
-          width: '100%',
-          borderCollapse: 'collapse',
-          borderBottom: '1.5px solid #000000',
-          fontSize: '12px',
-        }}
-      >
-        <thead>
-          <tr style={{ backgroundColor: '#F8FAFC' }}>
-            <th style={{ border: '1px solid #000000', padding: '6px 8px', textAlign: 'center', width: '45px', fontWeight: 700 }}>
-              Si.No
-            </th>
-            <th style={{ border: '1px solid #000000', padding: '6px 8px', textAlign: 'left', fontWeight: 700 }}>
-              Particular
-            </th>
-            <th style={{ border: '1px solid #000000', padding: '6px 8px', textAlign: 'center', width: '75px', fontWeight: 700 }}>
-              Quantity
-            </th>
-            <th style={{ border: '1px solid #000000', padding: '6px 8px', textAlign: 'right', width: '85px', fontWeight: 700 }}>
-              Rate (₹)
-            </th>
-            <th style={{ border: '1px solid #000000', padding: '6px 8px', textAlign: 'center', width: '85px', fontWeight: 700 }}>
-              Pkt / Unit
-            </th>
-            <th style={{ border: '1px solid #000000', padding: '6px 8px', textAlign: 'right', width: '105px', fontWeight: 700 }}>
-              Amount (₹)
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {(bill.products || []).length === 0 ? (
-            <tr>
-              <td colSpan={6} style={{ border: '1px solid #000000', textAlign: 'center', padding: '14px', color: '#64748B' }}>
-                No product items in bill
-              </td>
-            </tr>
-          ) : (
-            (bill.products || []).map((item, idx) => {
-              const numAmt = parseFloat(String(item.amount).replace(/,/g, '')) || 0;
-              const numRate = parseFloat(String(item.rate).replace(/,/g, '')) || 0;
-              return (
-                <tr key={idx}>
-                  <td style={{ border: '1px solid #000000', padding: '6px 8px', textAlign: 'center' }}>{idx + 1}</td>
-                  <td style={{ border: '1px solid #000000', padding: '6px 8px', fontWeight: 600 }}>{item.particular || '-'}</td>
-                  <td style={{ border: '1px solid #000000', padding: '6px 8px', textAlign: 'center' }}>{item.quantity || '-'}</td>
-                  <td style={{ border: '1px solid #000000', padding: '6px 8px', textAlign: 'right' }}>
-                    {numRate > 0 ? numRate.toFixed(2) : (item.rate || '-')}
-                  </td>
-                  <td style={{ border: '1px solid #000000', padding: '6px 8px', textAlign: 'center' }}>
-                    {item.pktUnit && item.pktUnit !== '-' ? item.pktUnit : ''}
-                  </td>
-                  <td style={{ border: '1px solid #000000', padding: '6px 8px', textAlign: 'right', fontWeight: 700 }}>
-                    {numAmt.toFixed(2)}
-                  </td>
-                </tr>
-              );
-            })
-          )}
-        </tbody>
-      </table>
-
-      {/* Bottom Split Section: Left (Receipt Image or Signatory Box) & Right (Calculation Summary Table) */}
+      {/* Main Bordered Bill Container */}
       <div
+        className="bill-box"
         style={{
-          width: '100%',
+          border: '1.5px solid #000000',
+          boxSizing: 'border-box',
+          backgroundColor: '#FFFFFF',
+          flex: 1,
           display: 'flex',
+          flexDirection: 'column',
           justifyContent: 'space-between',
-          alignItems: 'stretch',
         }}
       >
-        {/* Left Column: Uploaded Receipt Image or Authorized Signatory */}
-        {receiptSrc ? (
-          <div
-            style={{
-              flex: '1 1 50%',
-              borderRight: '1.5px solid #000000',
-              padding: '8px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              boxSizing: 'border-box',
-              minHeight: '140px',
-            }}
-          >
-            {receiptSrc.startsWith('data:image') || receiptSrc.match(/\.(jpeg|jpg|png|webp|gif)$/i) || !receiptSrc.includes('application/pdf') ? (
-              <img
-                src={receiptSrc}
-                alt="Transport Receipt"
-                style={{
-                  maxWidth: '100%',
-                  maxHeight: '180px',
-                  objectFit: 'contain',
-                  display: 'block',
-                }}
-              />
-            ) : (
-              <iframe
-                src={receiptSrc}
-                title="Transport Receipt PDF"
-                style={{
-                  width: '100%',
-                  height: '180px',
-                  border: 'none',
-                }}
-              />
-            )}
+        {/* Header: Ganesha (Left) | Title & Address (Center) | Apsara Logo (Right) */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '2px 10px 6px 10px',
+            borderBottom: '1.5px solid #000000',
+          }}
+        >
+          {/* Left: Lord Ganesha */}
+          <div style={{ width: '75px', textAlign: 'center', flexShrink: 0 }}>
+            <img
+              src={defaultGaneshaLogo}
+              alt="Ganesha"
+              style={{
+                maxHeight: '68px',
+                maxWidth: '72px',
+                objectFit: 'contain',
+                display: 'block',
+                margin: '0 auto',
+              }}
+            />
           </div>
-        ) : (
-          <div
-            style={{
-              flex: '1 1 50%',
-              borderRight: '1.5px solid #000000',
-              padding: '12px 16px',
-              display: 'flex',
-              flexDirection: 'column',
-              justifyContent: 'flex-end',
-              boxSizing: 'border-box',
-              minHeight: '140px',
-            }}
-          >
-            <div style={{ fontSize: '11px', color: '#64748B', marginBottom: '24px' }}>
-              Thank you for your business!
+
+          {/* Center: Apsara Traders Details */}
+          <div style={{ flex: 1, textAlign: 'center', padding: '0 8px' }}>
+            <div
+              style={{
+                fontSize: '24px',
+                fontWeight: 900,
+                textTransform: 'uppercase',
+                letterSpacing: '0.03em',
+                lineHeight: 1.15,
+                marginBottom: '2px',
+                color: '#000000',
+              }}
+            >
+              {displayCompanyName}
             </div>
             <div
               style={{
-                fontSize: '11.5px',
+                fontSize: '11px',
+                fontWeight: 700,
+                textTransform: 'uppercase',
                 color: '#000000',
-                borderTop: '1px dashed #000000',
-                display: 'inline-block',
-                paddingTop: '4px',
-                minWidth: '180px',
+                marginBottom: '2px',
               }}
             >
-              <div style={{ fontWeight: 800, color: '#000000' }}>For {displayCompanyName}</div>
-              <div style={{ fontSize: '10.5px', color: '#475569', fontWeight: 600, marginTop: '2px' }}>
-                {storeSettings.ownerName ? `(${storeSettings.ownerName}) ` : ''}Authorized Signatory
-              </div>
+              (ALL KINDS OF CRACKERS AND FANCY VARIETIES AVAILABLE)
+            </div>
+            <div style={{ fontSize: '11.5px', color: '#000000', marginBottom: '1px' }}>
+              #67-H-E, Rajiv gandhi Nagar,Near Ramji Polypack Sivakasi bus stand Backside
+            </div>
+            <div style={{ fontSize: '12.5px', fontWeight: 800, color: '#000000' }}>
+              SIVAKASI - 626 123
             </div>
           </div>
-        )}
 
-        {/* Right Column: Calculation Summary Table */}
-        <div style={{ flex: '1 1 50%', padding: 0, boxSizing: 'border-box' }}>
-          <table
-            style={{
-              width: '100%',
-              borderCollapse: 'collapse',
-              fontSize: '12.5px',
-            }}
-          >
-            <tbody>
-              <tr>
-                <td style={{ border: '1px solid #000000', padding: '5px 10px', fontWeight: 500, color: '#334155' }}>
-                  Particular Amount
-                </td>
-                <td style={{ border: '1px solid #000000', padding: '5px 10px', textAlign: 'right', fontWeight: 600, color: '#000000' }}>
-                  {subtotal.toFixed(2)}
-                </td>
-              </tr>
-              {discountAmt > 0 && (
-                <tr>
-                  <td style={{ border: '1px solid #000000', padding: '5px 10px', fontWeight: 500, color: '#334155' }}>
-                    {discountLabel}
-                  </td>
-                  <td style={{ border: '1px solid #000000', padding: '5px 10px', textAlign: 'right', fontWeight: 600, color: '#000000' }}>
-                    -{discountAmt.toFixed(2)}
-                  </td>
-                </tr>
-              )}
-              {transportAmt > 0 && (
-                <tr>
-                  <td style={{ border: '1px solid #000000', padding: '5px 10px', fontWeight: 500, color: '#334155' }}>
-                    Transport Charges
-                  </td>
-                  <td style={{ border: '1px solid #000000', padding: '5px 10px', textAlign: 'right', fontWeight: 600, color: '#000000' }}>
-                    +{transportAmt.toFixed(2)}
-                  </td>
-                </tr>
-              )}
-              {packingAmt > 0 && (
-                <tr>
-                  <td style={{ border: '1px solid #000000', padding: '5px 10px', fontWeight: 500, color: '#334155' }}>
-                    {packingLabel}
-                  </td>
-                  <td style={{ border: '1px solid #000000', padding: '5px 10px', textAlign: 'right', fontWeight: 600, color: '#000000' }}>
-                    +{packingAmt.toFixed(2)}
-                  </td>
-                </tr>
-              )}
-              {taxAmt > 0 && (
-                <tr>
-                  <td style={{ border: '1px solid #000000', padding: '5px 10px', fontWeight: 500, color: '#334155' }}>
-                    {taxLabel}
-                  </td>
-                  <td style={{ border: '1px solid #000000', padding: '5px 10px', textAlign: 'right', fontWeight: 600, color: '#000000' }}>
-                    +{taxAmt.toFixed(2)}
-                  </td>
-                </tr>
-              )}
-              <tr style={{ backgroundColor: '#F8FAFC' }}>
-                <td style={{ border: '1px solid #000000', borderTop: '1.5px solid #000000', padding: '7px 10px', fontWeight: 800 }}>
-                  Total Amount
-                </td>
-                <td style={{ border: '1px solid #000000', borderTop: '1.5px solid #000000', padding: '7px 10px', textAlign: 'right', fontSize: '13.5px', fontWeight: 800 }}>
-                  {formattedTotal}
-                </td>
-              </tr>
-            </tbody>
-          </table>
+          {/* Right: Apsara Crackers Logo */}
+          <div style={{ width: '85px', textAlign: 'center', flexShrink: 0 }}>
+            <img
+              src={defaultApsaraFeatherLogo}
+              alt="Apsara Crackers"
+              style={{
+                maxHeight: '68px',
+                maxWidth: '85px',
+                objectFit: 'contain',
+                display: 'block',
+                margin: '0 auto',
+              }}
+            />
+          </div>
         </div>
+
+        {/* 3-Column Section: To (Left) | Delivery To Details (Middle) | Invoice Meta (Right) */}
+        <table
+          style={{
+            width: '100%',
+            borderCollapse: 'collapse',
+            borderBottom: '1.5px solid #000000',
+            fontSize: '11.5px',
+          }}
+        >
+          <tbody>
+            <tr>
+              {/* Column 1: To */}
+              <td
+                style={{
+                  width: '38%',
+                  borderRight: '1.5px solid #000000',
+                  padding: '6px 8px',
+                  verticalAlign: 'top',
+                  lineHeight: 1.35,
+                }}
+              >
+                <div style={{ fontWeight: 700, marginBottom: '2px' }}>To :</div>
+                {customerDisplayName ? (
+                  <div style={{ fontWeight: 700, fontSize: '12px', marginBottom: '2px' }}>
+                    {customerDisplayName}
+                  </div>
+                ) : null}
+                {customerAddressFormatted ? (
+                  <div style={{ marginBottom: '2px' }}>{customerAddressFormatted}</div>
+                ) : null}
+                {bill.customerPhone ? (
+                  <div style={{ marginBottom: '2px', fontWeight: 500 }}>
+                    Cell : {bill.customerPhone}
+                  </div>
+                ) : null}
+                {customerAadharOrPan ? (
+                  <div style={{ marginTop: '4px', fontWeight: 600 }}>
+                    AADHAR/PAN No : {customerAadharOrPan}
+                  </div>
+                ) : null}
+              </td>
+
+              {/* Column 2: Delivery To Details */}
+              <td
+                style={{
+                  width: '38%',
+                  borderRight: '1.5px solid #000000',
+                  padding: '6px 8px',
+                  verticalAlign: 'top',
+                  lineHeight: 1.35,
+                }}
+              >
+                <div style={{ fontWeight: 600, marginBottom: '2px' }}>Delivery To Details:</div>
+                {deliveryDisplayName ? (
+                  <div style={{ fontWeight: 700, fontSize: '12px', marginBottom: '2px' }}>
+                    {deliveryDisplayName}
+                  </div>
+                ) : null}
+                {deliveryAddressFormatted ? (
+                  <div style={{ marginBottom: '2px' }}>{deliveryAddressFormatted}</div>
+                ) : null}
+                {bill.deliveryPhone || bill.customerPhone ? (
+                  <div style={{ marginBottom: '2px', fontWeight: 500 }}>
+                    Cell : {bill.deliveryPhone || bill.customerPhone}
+                  </div>
+                ) : null}
+                {deliveryAadharOrPan ? (
+                  <div style={{ marginTop: '4px', fontWeight: 600 }}>
+                    AADHAR/PAN No : {deliveryAadharOrPan}
+                  </div>
+                ) : null}
+              </td>
+
+              {/* Column 3: Invoice Header, Bill No., Date */}
+              <td
+                style={{
+                  width: '24%',
+                  padding: 0,
+                  verticalAlign: 'top',
+                }}
+              >
+                <table style={{ width: '100%', borderCollapse: 'collapse', height: '100%' }}>
+                  <tbody>
+                    <tr>
+                      <td
+                        style={{
+                          backgroundColor: '#404040',
+                          color: '#FFFFFF',
+                          fontWeight: 800,
+                          fontSize: '12px',
+                          textAlign: 'center',
+                          padding: '5px 4px',
+                          borderBottom: '1px solid #000000',
+                          letterSpacing: '0.06em',
+                        }}
+                      >
+                        {invoiceTitle}
+                      </td>
+                    </tr>
+                    <tr>
+                      <td
+                        style={{
+                          padding: '6px 8px',
+                          borderBottom: '1px solid #000000',
+                          fontSize: '12px',
+                          fontWeight: 700,
+                        }}
+                      >
+                        Bill No. &nbsp;: &nbsp;<strong>{bill.billNo || ''}</strong>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td
+                        style={{
+                          padding: '6px 8px',
+                          fontSize: '12px',
+                          fontWeight: 700,
+                        }}
+                      >
+                        Date &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;: &nbsp;<strong>{bill.date}</strong>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+
+        {/* Products Table with Continuous Vertical Lines */}
+        <table
+          style={{
+            width: '100%',
+            borderCollapse: 'collapse',
+            borderBottom: '1.5px solid #000000',
+            fontSize: '11.5px',
+          }}
+        >
+          <thead>
+            <tr
+              style={{
+                backgroundColor: '#404040',
+                color: '#FFFFFF',
+                fontWeight: 700,
+                textTransform: 'uppercase',
+                fontSize: '11px',
+              }}
+            >
+              <th
+                style={{
+                  width: '6%',
+                  borderRight: '1px solid #000000',
+                  padding: '5px 4px',
+                  textAlign: 'center',
+                }}
+              >
+                S.No
+              </th>
+              <th
+                style={{
+                  width: '44%',
+                  borderRight: '1px solid #000000',
+                  padding: '5px 8px',
+                  textAlign: 'center',
+                }}
+              >
+                PRODUCT NAME
+              </th>
+              <th
+                style={{
+                  width: '13%',
+                  borderRight: '1px solid #000000',
+                  padding: '5px 4px',
+                  textAlign: 'center',
+                }}
+              >
+                QUANTITY
+              </th>
+              <th
+                style={{
+                  width: '13%',
+                  borderRight: '1px solid #000000',
+                  padding: '5px 6px',
+                  textAlign: 'center',
+                }}
+              >
+                RATE
+              </th>
+              <th
+                style={{
+                  width: '10%',
+                  borderRight: '1px solid #000000',
+                  padding: '5px 4px',
+                  textAlign: 'center',
+                }}
+              >
+                PER
+              </th>
+              <th
+                style={{
+                  width: '14%',
+                  padding: '5px 8px',
+                  textAlign: 'center',
+                }}
+              >
+                AMOUNT
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {products.length === 0 ? (
+              <tr style={{ verticalAlign: 'top' }}>
+                <td style={{ borderRight: '1px solid #000000', textAlign: 'center', padding: '6px 4px' }}>1</td>
+                <td style={{ borderRight: '1px solid #000000', padding: '6px 8px', fontWeight: 600 }}>Assorted Crackers</td>
+                <td style={{ borderRight: '1px solid #000000', textAlign: 'center', padding: '6px 4px' }}>11 Case</td>
+                <td style={{ borderRight: '1px solid #000000', textAlign: 'right', padding: '6px 8px' }}>2,200.00</td>
+                <td style={{ borderRight: '1px solid #000000', textAlign: 'center', padding: '6px 4px' }}>Case</td>
+                <td style={{ textAlign: 'right', padding: '6px 8px', fontWeight: 600 }}>24,200.00</td>
+              </tr>
+            ) : (
+              products.map((item, idx) => {
+                const qNum = parseFloat(String(item.quantity || 0)) || 0;
+                const rNum = parseFloat(String(item.rate || 0)) || 0;
+                const rowAmount = item.amount ? parseFloat(String(item.amount).replace(/,/g, '')) : qNum * rNum;
+                const unitDisplay = item.pktUnit || item.unit || item.per || 'Case';
+
+                return (
+                  <tr key={idx} style={{ verticalAlign: 'top' }}>
+                    <td
+                      style={{
+                        borderRight: '1px solid #000000',
+                        textAlign: 'center',
+                        padding: '4px 4px',
+                        fontWeight: 500,
+                      }}
+                    >
+                      {idx + 1}
+                    </td>
+                    <td
+                      style={{
+                        borderRight: '1px solid #000000',
+                        padding: '4px 8px',
+                        fontWeight: 600,
+                      }}
+                    >
+                      {item.particular}
+                    </td>
+                    <td
+                      style={{
+                        borderRight: '1px solid #000000',
+                        textAlign: 'center',
+                        padding: '4px 4px',
+                      }}
+                    >
+                      {item.quantity} {unitDisplay}
+                    </td>
+                    <td
+                      style={{
+                        borderRight: '1px solid #000000',
+                        textAlign: 'right',
+                        padding: '4px 8px',
+                      }}
+                    >
+                      {formatCurrency(item.rate)}
+                    </td>
+                    <td
+                      style={{
+                        borderRight: '1px solid #000000',
+                        textAlign: 'center',
+                        padding: '4px 4px',
+                      }}
+                    >
+                      {unitDisplay}
+                    </td>
+                    <td
+                      style={{
+                        textAlign: 'right',
+                        padding: '4px 8px',
+                        fontWeight: 600,
+                      }}
+                    >
+                      {formatCurrency(rowAmount)}
+                    </td>
+                  </tr>
+                );
+              })
+            )}
+
+            {/* Continuous Vertical Lines Spacer to fill the A4 page */}
+            <tr style={{ height: `${spacerMinHeight}px` }}>
+              <td style={{ borderRight: '1px solid #000000' }}>&nbsp;</td>
+              <td style={{ borderRight: '1px solid #000000' }}>&nbsp;</td>
+              <td style={{ borderRight: '1px solid #000000' }}>&nbsp;</td>
+              <td style={{ borderRight: '1px solid #000000' }}>&nbsp;</td>
+              <td style={{ borderRight: '1px solid #000000' }}>&nbsp;</td>
+              <td>&nbsp;</td>
+            </tr>
+          </tbody>
+        </table>
+
+        {/* Bottom Split Section: Dispatch Left | Totals Right */}
+        <table
+          style={{
+            width: '100%',
+            borderCollapse: 'collapse',
+            borderBottom: '1.5px solid #000000',
+            fontSize: '11.5px',
+          }}
+        >
+          <tbody>
+            <tr>
+              {/* Left Column: Dispatch, Transport, HSN, Total Cases */}
+              <td
+                style={{
+                  width: '58%',
+                  borderRight: '1.5px solid #000000',
+                  padding: '6px 8px',
+                  verticalAlign: 'top',
+                  lineHeight: 1.45,
+                }}
+              >
+                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                  <tbody>
+                    <tr>
+                      <td style={{ padding: '2px 0', width: '50%' }}>
+                        Dispatch From &nbsp;: &nbsp;<strong>{dispatchFrom}</strong>
+                      </td>
+                      <td style={{ padding: '2px 0', width: '50%' }}>
+                        To &nbsp;: &nbsp;<strong>{dispatchTo || '-'}</strong>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td style={{ padding: '3px 0', width: '50%' }}>
+                        Transport &nbsp;: &nbsp;<strong>{transportDisplayName || '-'}</strong>
+                      </td>
+                      <td style={{ padding: '3px 0', width: '50%' }}>
+                        Total Pieces &nbsp;: &nbsp;<strong>{totalQtyComputed}</strong>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+
+                {/* Optional Uploaded Transport Receipt Preview if present */}
+                {receiptSrc && (
+                  <div style={{ marginTop: '8px', borderTop: '1px dashed #CBD5E1', paddingTop: '6px' }}>
+                    <div style={{ fontSize: '10px', fontWeight: 700, color: '#64748B', marginBottom: '4px' }}>
+                      ATTACHED TRANSPORT RECEIPT:
+                    </div>
+                    {receiptSrc.startsWith('data:image') || receiptSrc.match(/\.(jpeg|jpg|png|webp|gif)$/i) || !receiptSrc.includes('application/pdf') ? (
+                      <img
+                        src={receiptSrc}
+                        alt="Receipt"
+                        style={{ maxHeight: '70px', maxWidth: '100%', objectFit: 'contain', display: 'block' }}
+                      />
+                    ) : (
+                      <span style={{ fontSize: '11px', color: '#0B4DB7', fontWeight: 600 }}>PDF Attachment Included</span>
+                    )}
+                  </div>
+                )}
+              </td>
+
+              {/* Right Column: Calculations Table */}
+              <td
+                style={{
+                  width: '42%',
+                  padding: 0,
+                  verticalAlign: 'top',
+                }}
+              >
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11.5px' }}>
+                  <tbody>
+                    <tr>
+                      <td style={{ padding: '2.5px 8px', fontWeight: 600 }}>Total :</td>
+                      <td style={{ padding: '2.5px 4px', textAlign: 'center', width: '75px' }}>:</td>
+                      <td style={{ padding: '2.5px 8px', textAlign: 'right', fontWeight: 600 }}>
+                        {formatCurrency(subtotal)}
+                      </td>
+                    </tr>
+                    {discountAmount > 0 && (
+                      <tr>
+                        <td style={{ padding: '2.5px 8px', fontWeight: 500 }}>Less : Discount</td>
+                        <td style={{ padding: '2.5px 4px', textAlign: 'center' }}>
+                          : {discountPercent} %
+                        </td>
+                        <td style={{ padding: '2.5px 8px', textAlign: 'right' }}>
+                          {formatCurrency(discountAmount)}
+                        </td>
+                      </tr>
+                    )}
+                    {packingAmount > 0 && (
+                      <tr>
+                        <td style={{ padding: '2.5px 8px', fontWeight: 500 }}>ADD : P &amp; F CHGS</td>
+                        <td style={{ padding: '2.5px 4px', textAlign: 'center' }}>
+                          : {packingPercent} %
+                        </td>
+                        <td style={{ padding: '2.5px 8px', textAlign: 'right' }}>
+                          {formatCurrency(packingAmount)}
+                        </td>
+                      </tr>
+                    )}
+                    {transportAmt > 0 && (
+                      <tr>
+                        <td style={{ padding: '2.5px 8px', fontWeight: 500 }}>Transport Charges</td>
+                        <td style={{ padding: '2.5px 4px', textAlign: 'center' }}>:</td>
+                        <td style={{ padding: '2.5px 8px', textAlign: 'right' }}>
+                          {formatCurrency(transportAmt)}
+                        </td>
+                      </tr>
+                    )}
+                    <tr>
+                      <td style={{ padding: '2.5px 8px', fontWeight: 600 }}>Value of Goods</td>
+                      <td style={{ padding: '2.5px 4px', textAlign: 'center' }}>:</td>
+                      <td style={{ padding: '2.5px 8px', textAlign: 'right', fontWeight: 600 }}>
+                        {formatCurrency(valueOfGoods)}
+                      </td>
+                    </tr>
+                    {taxAmount > 0 && (
+                      <tr>
+                        <td style={{ padding: '2.5px 8px', fontWeight: 500 }}>GST / Tax</td>
+                        <td style={{ padding: '2.5px 4px', textAlign: 'center' }}>
+                          : {taxRate} %
+                        </td>
+                        <td style={{ padding: '2.5px 8px', textAlign: 'right' }}>
+                          {formatCurrency(taxAmount)}
+                        </td>
+                      </tr>
+                    )}
+                    <tr>
+                      <td style={{ padding: '2.5px 8px', fontWeight: 500 }}>Round Off</td>
+                      <td style={{ padding: '2.5px 4px', textAlign: 'center' }}>:</td>
+                      <td style={{ padding: '2.5px 8px', textAlign: 'right' }}>
+                        {formatCurrency(roundOffNum)}
+                      </td>
+                    </tr>
+                    <tr style={{ borderTop: '1px solid #000000' }}>
+                      <td style={{ padding: '4px 8px', fontWeight: 800, fontSize: '12px' }}>Grand Total</td>
+                      <td style={{ padding: '4px 4px', textAlign: 'center', fontWeight: 800 }}>:</td>
+                      <td
+                        style={{
+                          padding: '4px 8px',
+                          textAlign: 'right',
+                          fontWeight: 800,
+                          fontSize: '12px',
+                        }}
+                      >
+                        {formatCurrency(grandTotalNum)}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+
+        {/* Amount in Words (Rupees : ...) */}
+        <div
+          style={{
+            padding: '6px 8px',
+            borderBottom: '1.5px solid #000000',
+            fontSize: '11.5px',
+            fontWeight: 700,
+          }}
+        >
+          Rupees : &nbsp;{wordsClean} Only.
+        </div>
+
+        {/* Footer: Terms Left | Signatory Right */}
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10.5px' }}>
+          <tbody>
+            <tr>
+              {/* Terms Left */}
+              <td
+                style={{
+                  width: '58%',
+                  borderRight: '1.5px solid #000000',
+                  padding: '6px 8px',
+                  verticalAlign: 'top',
+                }}
+              >
+                <div style={{ lineHeight: 1.45 }}>
+                  <div>1. Certified that the particulars given above are true and correct.</div>
+                  <div>2. Goods once sold cannot be taken back on any account.</div>
+                  <div>3. Subject to sivakasi jurisdiction</div>
+                </div>
+                <div
+                  style={{
+                    textAlign: 'right',
+                    paddingRight: '28px',
+                    marginTop: '16px',
+                    fontWeight: 700,
+                    fontSize: '11px',
+                  }}
+                >
+                  E. &amp; O.E
+                </div>
+              </td>
+
+              {/* Signatory Right */}
+              <td
+                style={{
+                  width: '42%',
+                  padding: '6px 8px',
+                  verticalAlign: 'top',
+                  textAlign: 'center',
+                }}
+              >
+                <div style={{ fontWeight: 800, fontSize: '12px', textTransform: 'uppercase' }}>
+                  For {displayCompanyName}
+                </div>
+                <div style={{ height: '48px' }}></div>
+                <div style={{ fontSize: '11px', fontWeight: 600 }}>
+                  Authorized Signatory
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </div>
   );
